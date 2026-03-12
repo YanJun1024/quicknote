@@ -1122,22 +1122,33 @@ class FlomoWebApp {
                     return;
                 }
                 
+                // 先获取现有笔记，用于去重
+                const existingNotesResponse = await fetch('http://localhost:8080/api/notes');
+                const existingNotes = await existingNotesResponse.json();
+                
                 let addedNotes = 0;
                 for (const note of importedData.notes) {
                     try {
-                        const response = await fetch('/api/notes', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                content: note.content,
-                                tags: note.tags || []
-                            })
-                        });
+                        // 检查是否已存在相同内容的笔记
+                        const isDuplicate = existingNotes.some(existingNote => 
+                            existingNote.content === note.content
+                        );
                         
-                        if (response.ok) {
-                            addedNotes++;
+                        if (!isDuplicate) {
+                            const response = await fetch('http://localhost:8080/api/notes', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    content: note.content,
+                                    tags: note.tags || []
+                                })
+                            });
+                            
+                            if (response.ok) {
+                                addedNotes++;
+                            }
                         }
                     } catch (error) {
                         console.error('导入单个笔记失败:', error);
