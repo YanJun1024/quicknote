@@ -1,4 +1,4 @@
-// Flomo Lite - 网页版应用逻辑 (带智能静默自动备份功能)
+// Flomo Lite - 网页版应用逻辑 (离线优先架构)
 class FlomoWebApp {
     constructor() {
         this.notes = [];
@@ -9,11 +9,22 @@ class FlomoWebApp {
         this.currentTagPreview = '';
         this.theme = localStorage.getItem('flomo-theme') || 'light';
         this.debounceTimer = null;
+        this.toolbarUpdateTimer = null;
         this.lastProcessedContent = '';
         this.resizeTimer = null;
         this.avatarData = localStorage.getItem('user-avatar') || '';
+        this.apiBaseUrl = 'http://localhost:8080/api';
+        
+        this.domCache = {};
         
         this.init();
+    }
+    
+    getDomElement(id) {
+        if (!this.domCache[id]) {
+            this.domCache[id] = document.getElementById(id);
+        }
+        return this.domCache[id];
     }
 
     async init() {
@@ -24,13 +35,23 @@ class FlomoWebApp {
         this.render();
         this.initResizeObserver();
         this.loadAvatar();
+        this.setupOfflineDetection();
     }
 
-    // 加载头像
+    setupOfflineDetection() {
+        window.addEventListener('online', () => {
+            this.showToast('网络已连接', 'success');
+        });
+        
+        window.addEventListener('offline', () => {
+            this.showToast('网络已断开，应用将在联网后恢复正常', 'warning');
+        });
+    }
+
     loadAvatar() {
-        const avatarImage = document.getElementById('avatarImage');
-        const avatarPlaceholder = document.getElementById('avatarPlaceholder');
-        const avatarNotesBadge = document.getElementById('avatarNotesBadge');
+        const avatarImage = this.getDomElement('avatarImage');
+        const avatarPlaceholder = this.getDomElement('avatarPlaceholder');
+        const avatarNotesBadge = this.getDomElement('avatarNotesBadge');
         
         if (avatarNotesBadge) {
             avatarNotesBadge.textContent = this.notes.length;
@@ -46,7 +67,6 @@ class FlomoWebApp {
         }
     }
 
-    // 处理头像上传
     handleAvatarUpload(file) {
         if (!file) return;
         
@@ -76,7 +96,6 @@ class FlomoWebApp {
         reader.readAsDataURL(file);
     }
 
-    // 清除头像
     clearAvatar() {
         if (confirm('确定要清除头像吗？')) {
             this.avatarData = '';
@@ -86,6 +105,37 @@ class FlomoWebApp {
         }
     }
 
+    async apiRequest(endpoint, options = {}) {
+        const url = `${this.apiBaseUrl}${endpoint}`;
+        const defaultOptions = {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        };
+        
+        try {
+            const response = await fetch(url, { ...defaultOptions, ...options });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return await response.json();
+            }
+            
+            return await response.text();
+        } catch (error) {
+            console.error(`API请求失败 (${endpoint}):`, error);
+            
+            if (!navigator.onLine) {
+                throw new Error('网络已断开，请检查网络连接后重试');
+            }
+            
+            throw error;
+        }
+    }
 
 
     initResizeObserver() {
@@ -126,15 +176,8 @@ class FlomoWebApp {
 
     async loadData() {
         try {
-            // 从API获取笔记数据
-            const notesResponse = await fetch('http://localhost:8080/api/notes');
-            if (!notesResponse.ok) throw new Error('Failed to load notes');
-            const notes = await notesResponse.json();
-            
-            // 从API获取标签数据
-            const tagsResponse = await fetch('http://localhost:8080/api/tags');
-            if (!tagsResponse.ok) throw new Error('Failed to load tags');
-            const tags = await tagsResponse.json();
+            const notes = await this.apiRequest('/notes');
+            const tags = await this.apiRequest('/tags');
             
             this.notes = notes;
             this.tags = new Set(tags);
@@ -171,6 +214,21 @@ class FlomoWebApp {
                 this.toggleMode(mode === 'search');
             });
         });
+        
+        // 监听选择变化，更新工具栏按钮状态
+        const noteInput = document.getElementById('noteInput');
+        if (noteInput) {
+            // 使用 selectionchange 事件，更高效地监听选择变化
+            document.addEventListener('selectionchange', () => this.debounceUpdateToolbarState());
+            // 监听键盘快捷键
+            noteInput.addEventListener('keydown', (e) => {
+                // 检查是否按下了格式相关的快捷键
+                if ((e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) {
+                    // 延迟更新状态，确保命令已经执行
+                    setTimeout(() => this.updateToolbarState(), 10);
+                }
+            });
+        }
 
         // 保存笔记
         document.getElementById('saveBtn').addEventListener('click', () => this.saveNote());
@@ -235,7 +293,7 @@ class FlomoWebApp {
 
         // 输入预览
         document.getElementById('noteInput').addEventListener('input', (e) => {
-            const content = e.target.value;
+            const content = e.target.innerHTML;
             
             this.renderTagPreview();
             
@@ -354,9 +412,9 @@ class FlomoWebApp {
         } 
         else if (target.classList.contains('confirm-edit-btn') || target.closest('.confirm-edit-btn')) {
             e.stopPropagation();
-            const textarea = document.querySelector('.note-card.editing textarea');
-            if (noteId && textarea) {
-                this.saveEditedNote(noteId, textarea.value);
+            const editDiv = document.querySelector('.note-card.editing .edit-textarea');
+            if (noteId && editDiv) {
+                this.saveEditedNote(noteId, editDiv.innerHTML);
             }
         } 
         else if (target.classList.contains('cancel-edit-btn') || target.closest('.cancel-edit-btn')) {
@@ -504,8 +562,8 @@ class FlomoWebApp {
                 noteInput.focus();
                 clearTimeout(this.debounceTimer);
                 this.debounceTimer = setTimeout(() => {
-                    this.checkAndShowTagNotes(noteInput.value);
-                    this.lastProcessedContent = noteInput.value;
+                    this.checkAndShowTagNotes(noteInput.innerHTML);
+                    this.lastProcessedContent = noteInput.innerHTML;
                 }, 100);
             }
             
@@ -516,12 +574,21 @@ class FlomoWebApp {
         setTimeout(() => this.adjustScrollAreas(), 50);
     }
 
+    // 去除HTML标签的辅助函数
+    stripHtml(html) {
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        return temp.textContent || temp.innerText || '';
+    }
+
     extractTags(content) {
+        // 先去除HTML标签
+        const plainText = this.stripHtml(content);
         const tagRegex = /#([\w\u4e00-\u9fa5\/\-_]+)/g;
         const tags = [];
         let match;
         
-        while ((match = tagRegex.exec(content)) !== null) {
+        while ((match = tagRegex.exec(plainText)) !== null) {
             const tag = match[1];
             tags.push(tag);
             
@@ -583,7 +650,7 @@ class FlomoWebApp {
         const displayNotes = taggedNotes.slice(0, 5);
         previewList.innerHTML = displayNotes.map(note => `
             <div class="preview-note-item" onclick="flomoApp.searchByTag('${tag}')">
-                <div class="preview-note-content">${this.truncateText(this.escapeHtml(note.content), 60)}</div>
+                <div class="preview-note-content">${this.truncateText(this.stripHtml(note.content), 60)}</div>
                 <div class="preview-note-meta">
                     <span class="preview-note-time">${this.formatTime(new Date(note.timestamp))}</span>
                 </div>
@@ -628,7 +695,7 @@ class FlomoWebApp {
 
     async saveNote() {
         const input = document.getElementById('noteInput');
-        const content = input.value.trim();
+        const content = input.innerHTML.trim();
         
         if (!content) {
             this.showToast('笔记内容不能为空', 'error');
@@ -639,50 +706,28 @@ class FlomoWebApp {
         const tags = this.extractTags(content);
         
         try {
-            console.log('开始保存笔记...');
-            console.log('内容:', content);
-            console.log('标签:', tags);
-            
-            // 直接使用完整的URL
-            const response = await fetch('http://localhost:8080/api/notes', {
+            const note = await this.apiRequest('/notes', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
                 body: JSON.stringify({ content, tags })
             });
-            
-            console.log('响应状态:', response.status);
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('保存失败:', errorText);
-                throw new Error(`保存失败: ${errorText}`);
-            }
-            
-            const note = await response.json();
-            console.log('保存成功，返回笔记:', note);
             
             this.notes.unshift(note);
             tags.forEach(tag => this.tags.add(tag));
             
-            // 直接调用saveData，不需要await
-            if (this.saveData()) {
-                input.value = '';
-                this.renderTagPreview();
-                this.hideTagNotesPreview();
-                this.currentTagPreview = '';
-                this.lastProcessedContent = '';
-                this.render();
-                this.showToast('笔记已保存', 'success');
-                
-                setTimeout(() => {
-                    const firstNote = document.querySelector('.note-card');
-                    if (firstNote) {
-                        firstNote.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }
-                }, 100);
-            }
+            input.innerHTML = '';
+            this.renderTagPreview();
+            this.hideTagNotesPreview();
+            this.currentTagPreview = '';
+            this.lastProcessedContent = '';
+            this.render();
+            this.showToast('笔记已保存', 'success');
+            
+            setTimeout(() => {
+                const firstNote = document.querySelector('.note-card');
+                if (firstNote) {
+                    firstNote.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }, 100);
         } catch (error) {
             console.error('保存笔记失败:', error);
             this.showToast('保存失败，请重试', 'error');
@@ -708,18 +753,12 @@ class FlomoWebApp {
     async deleteNote(id) {
         if (confirm('确定要删除这条笔记吗？')) {
             try {
-                const response = await fetch(`http://localhost:8080/api/notes/${id}`, {
-                    method: 'DELETE'
-                });
-                
-                if (!response.ok) throw new Error('删除失败');
+                await this.apiRequest(`/notes/${id}`, { method: 'DELETE' });
                 
                 this.notes = this.notes.filter(note => note.id !== id);
                 this.updateTagsFromNotes();
-                if (this.saveData()) {
-                    this.render();
-                    this.showToast('笔记已删除', 'success');
-                }
+                this.render();
+                this.showToast('笔记已删除', 'success');
             } catch (error) {
                 console.error('删除笔记失败:', error);
                 this.showToast('删除失败，请重试', 'error');
@@ -730,17 +769,12 @@ class FlomoWebApp {
     async deleteTag(tagToDelete) {
         if (confirm(`确定要删除标签 "#${tagToDelete}" 吗？\n\n这将从所有包含此标签的笔记中移除该标签。`)) {
             try {
-                // 找到所有包含该标签的笔记
                 const notesToUpdate = this.notes.filter(note => note.tags.includes(tagToDelete));
                 
-                // 为每个笔记更新标签
                 for (const note of notesToUpdate) {
                     const updatedTags = note.tags.filter(tag => tag !== tagToDelete);
-                    await fetch(`http://localhost:8080/api/notes/${note.id}`, {
+                    await this.apiRequest(`/notes/${note.id}`, {
                         method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
                         body: JSON.stringify({ 
                             content: note.content, 
                             tags: updatedTags 
@@ -748,7 +782,6 @@ class FlomoWebApp {
                     });
                 }
                 
-                // 重新加载数据
                 await this.loadData();
                 
                 if (this.currentSearch === tagToDelete) {
@@ -839,7 +872,14 @@ class FlomoWebApp {
             if (note.id === this.editingNoteId) {
                 return `
                     <div class="note-card editing" data-note-id="${note.id}" style="min-height: 300px; max-height: 400px;">
-                        <textarea class="edit-textarea" placeholder="编辑笔记内容..." autofocus style="min-height: 180px; max-height: 250px;">${this.escapeHtml(note.content)}</textarea>
+                        <div class="edit-textarea" contenteditable="true" placeholder="编辑笔记内容..." autofocus style="min-height: 180px; max-height: 200px; border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 12px; overflow-y: auto;">${note.content}</div>
+                        <div class="editor-toolbar" style="margin-top: 8px;">
+                            <button type="button" class="editor-btn" onclick="document.execCommand('bold', false, null);"><b>B</b></button>
+                            <button type="button" class="editor-btn" onclick="document.execCommand('italic', false, null);"><i>I</i></button>
+                            <button type="button" class="editor-btn" onclick="document.execCommand('underline', false, null);"><u>U</u></button>
+                            <button type="button" class="editor-btn" onclick="document.execCommand('insertUnorderedList', false, null);">•</button>
+                            <button type="button" class="editor-btn" onclick="document.execCommand('insertOrderedList', false, null);">1.</button>
+                        </div>
                         <div class="edit-actions" style="margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0;">
                             <button class="btn btn-primary confirm-edit-btn" data-note-id="${note.id}" style="padding: 8px 16px;">
                                 <i class="material-icons">save</i> 保存
@@ -931,7 +971,7 @@ class FlomoWebApp {
     renderTagPreview() {
         const input = document.getElementById('noteInput');
         const container = document.getElementById('tagPreview');
-        const tags = this.extractTags(input.value);
+        const tags = this.extractTags(input.innerHTML);
         
         container.innerHTML = tags.map(tag => `
             <span class="tag ${tag.includes('/') ? 'tag-nested' : ''}">
@@ -953,26 +993,31 @@ class FlomoWebApp {
 
     highlightSearch(text) {
         const { keyword } = this.parseSearchQuery(this.currentSearch);
-        if (!keyword) return this.escapeHtml(text);
+        if (!keyword) return text;
         
         const searchLower = keyword.toLowerCase();
         const textLower = text.toLowerCase();
-        const escapedText = this.escapeHtml(text);
         
-        if (!textLower.includes(searchLower)) return escapedText;
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = text;
+        const plainText = tempDiv.textContent || tempDiv.innerText || '';
+        
+        if (!plainText.toLowerCase().includes(searchLower)) return text;
+        
+        const escapedText = text;
         
         const parts = [];
         let lastIndex = 0;
-        let index = textLower.indexOf(searchLower);
+        let index = plainText.toLowerCase().indexOf(searchLower);
         
         while (index !== -1) {
-            parts.push(escapedText.substring(lastIndex, index));
-            parts.push(`<mark>${escapedText.substring(index, index + keyword.length)}</mark>`);
+            parts.push(text.substring(lastIndex, index));
+            parts.push(`<mark>${text.substring(index, index + keyword.length)}</mark>`);
             lastIndex = index + keyword.length;
-            index = textLower.indexOf(searchLower, lastIndex);
+            index = plainText.toLowerCase().indexOf(searchLower, lastIndex);
         }
         
-        parts.push(escapedText.substring(lastIndex));
+        parts.push(text.substring(lastIndex));
         return parts.join('');
     }
 
@@ -992,11 +1037,16 @@ class FlomoWebApp {
         this.render();
         
         setTimeout(() => {
-            const textarea = document.querySelector('.note-card.editing textarea');
-            if (textarea) {
-                textarea.focus();
-                textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-                textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const editDiv = document.querySelector('.note-card.editing .edit-textarea');
+            if (editDiv) {
+                editDiv.focus();
+                const range = document.createRange();
+                range.selectNodeContents(editDiv);
+                range.collapse(false);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+                editDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }, 50);
     }
@@ -1020,28 +1070,19 @@ class FlomoWebApp {
             const tags = this.extractTags(content);
             
             try {
-                const response = await fetch(`http://localhost:8080/api/notes/${noteId}`, {
+                const updatedNote = await this.apiRequest(`/notes/${noteId}`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
                     body: JSON.stringify({ content, tags })
                 });
-                
-                if (!response.ok) throw new Error('更新失败');
-                
-                const updatedNote = await response.json();
                 
                 this.notes[noteIndex] = updatedNote;
                 this.updateTagsFromNotes();
                 
                 this.notes.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
                 
-                if (this.saveData()) {
-                    this.editingNoteId = null;
-                    this.render();
-                    this.showToast('笔记已更新', 'success');
-                }
+                this.editingNoteId = null;
+                this.render();
+                this.showToast('笔记已更新', 'success');
             } catch (error) {
                 console.error('更新笔记失败:', error);
                 this.showToast('更新失败，请重试', 'error');
@@ -1122,33 +1163,25 @@ class FlomoWebApp {
                     return;
                 }
                 
-                // 先获取现有笔记，用于去重
-                const existingNotesResponse = await fetch('http://localhost:8080/api/notes');
-                const existingNotes = await existingNotesResponse.json();
+                const existingNotes = await this.apiRequest('/notes');
                 
                 let addedNotes = 0;
                 for (const note of importedData.notes) {
                     try {
-                        // 检查是否已存在相同内容的笔记
                         const isDuplicate = existingNotes.some(existingNote => 
                             existingNote.content === note.content
                         );
                         
                         if (!isDuplicate) {
-                            const response = await fetch('http://localhost:8080/api/notes', {
+                            await this.apiRequest('/notes', {
                                 method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
                                 body: JSON.stringify({
                                     content: note.content,
                                     tags: note.tags || []
                                 })
                             });
                             
-                            if (response.ok) {
-                                addedNotes++;
-                            }
+                            addedNotes++;
                         }
                     } catch (error) {
                         console.error('导入单个笔记失败:', error);
@@ -1184,14 +1217,10 @@ class FlomoWebApp {
     async clearAllData() {
         if (confirm('⚠️  警告！这将清空所有笔记和标签，且不可恢复。确定继续吗？')) {
             try {
-                // 逐个删除所有笔记
                 for (const note of this.notes) {
-                    await fetch(`/api/notes/${note.id}`, {
-                        method: 'DELETE'
-                    });
+                    await this.apiRequest(`/notes/${note.id}`, { method: 'DELETE' });
                 }
                 
-                // 重新加载数据
                 await this.loadData();
                 
                 this.currentSearch = '';
@@ -1275,6 +1304,35 @@ class FlomoWebApp {
             toast.style.transform = 'translateY(20px)';
             setTimeout(() => toast.remove(), 300);
         }, duration);
+    }
+    
+    debounceUpdateToolbarState() {
+        // 减少防抖延迟时间，提高响应速度
+        clearTimeout(this.toolbarUpdateTimer);
+        this.toolbarUpdateTimer = setTimeout(() => {
+            this.updateToolbarState();
+        }, 20);
+    }
+    
+    updateToolbarState() {
+        const commands = ['bold', 'italic', 'underline', 'insertUnorderedList', 'insertOrderedList'];
+        
+        commands.forEach(command => {
+            const button = document.querySelector(`.editor-btn[data-command="${command}"]`);
+            if (button) {
+                try {
+                    const isActive = document.queryCommandState(command);
+                    if (isActive) {
+                        button.classList.add('active');
+                    } else {
+                        button.classList.remove('active');
+                    }
+                } catch (error) {
+                    // 忽略命令状态检查错误
+                    console.warn('Command state check error:', error);
+                }
+            }
+        });
     }
 }
 
