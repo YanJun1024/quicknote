@@ -155,7 +155,11 @@ class FlomoWebApp {
     }
     
     insertHashtag() {
-        const input = document.getElementById('noteInput');
+        // 获取当前活动的编辑区域
+        let input = document.querySelector('.edit-textarea');
+        if (!input) {
+            input = document.getElementById('noteInput');
+        }
         if (input) {
             // 插入#号
             const selection = window.getSelection();
@@ -186,7 +190,11 @@ class FlomoWebApp {
     }
     
     insertSlash() {
-        const input = document.getElementById('noteInput');
+        // 获取当前活动的编辑区域
+        let input = document.querySelector('.edit-textarea');
+        if (!input) {
+            input = document.getElementById('noteInput');
+        }
         if (input) {
             // 插入/号
             const selection = window.getSelection();
@@ -217,7 +225,11 @@ class FlomoWebApp {
     }
     
     insertLink() {
-        const input = document.getElementById('noteInput');
+        // 获取当前活动的编辑区域
+        let input = document.querySelector('.edit-textarea');
+        if (!input) {
+            input = document.getElementById('noteInput');
+        }
         if (input) {
             // 获取当前选中的文本作为链接文本
             const selection = window.getSelection();
@@ -391,7 +403,7 @@ class FlomoWebApp {
         const noteInput = document.getElementById('noteInput');
         if (noteInput) {
             // 使用 selectionchange 事件，更高效地监听选择变化
-            document.addEventListener('selectionchange', () => this.debounceUpdateToolbarState());
+            noteInput.addEventListener('selectionchange', () => this.debounceUpdateToolbarState());
             // 监听键盘快捷键
             noteInput.addEventListener('keydown', (e) => {
                 // 检查是否按下了格式相关的快捷键
@@ -1055,14 +1067,16 @@ class FlomoWebApp {
         container.innerHTML = filteredNotes.map(note => {
             if (note.id === this.editingNoteId) {
                 return `
-                    <div class="note-card editing" data-note-id="${note.id}" style="min-height: 300px; max-height: 400px;">
-                        <div class="edit-textarea" contenteditable="true" placeholder="编辑笔记内容..." autofocus style="min-height: 180px; max-height: 200px; border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 12px; overflow-y: auto;">${note.content}</div>
+                    <div class="note-card editing" data-note-id="${note.id}" style="min-height: 400px; max-height: 500px; display: flex; flex-direction: column;">                    
+                        <div class="edit-textarea" contenteditable="true" placeholder="编辑笔记内容..." autofocus style="flex: 1; min-height: 120px; max-height: 180px; border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 12px; overflow-y: auto;">${note.content}</div>
                         <div class="editor-toolbar" style="margin-top: 8px;">
-                            <button type="button" class="editor-btn" onclick="document.execCommand('bold', false, null);"><b>B</b></button>
-                            <button type="button" class="editor-btn" onclick="document.execCommand('italic', false, null);"><i>I</i></button>
-                            <button type="button" class="editor-btn" onclick="document.execCommand('underline', false, null);"><u>U</u></button>
-                            <button type="button" class="editor-btn" onclick="document.execCommand('insertUnorderedList', false, null);">•</button>
-                            <button type="button" class="editor-btn" onclick="document.execCommand('insertOrderedList', false, null);">1.</button>
+                            <button type="button" class="editor-btn" onclick="flomoApp.insertHashtag();">#</button>
+                            <button type="button" class="editor-btn" onclick="flomoApp.insertSlash();">/</button>
+                            <button type="button" class="editor-btn" onclick="document.execCommand('bold', false, null); flomoApp.updateToolbarState();"><b>B</b></button>
+                            <button type="button" class="editor-btn" onclick="document.execCommand('underline', false, null); flomoApp.updateToolbarState();"><u>U</u></button>
+                            <button type="button" class="editor-btn" onclick="document.execCommand('insertOrderedList', false, null); flomoApp.updateToolbarState();"><i class="material-icons">format_list_numbered</i></button>
+                            <button type="button" class="editor-btn" onclick="flomoApp.insertLink();"><i class="material-icons">link</i></button>
+                            <button type="button" class="editor-btn" onclick="document.getElementById('attachmentUpload').click();"><i class="material-icons">attach_file</i></button>
                         </div>
                         <div class="edit-actions" style="margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0;">
                             <button class="btn btn-primary confirm-edit-btn" data-note-id="${note.id}" style="padding: 8px 16px;">
@@ -1501,8 +1515,25 @@ class FlomoWebApp {
     updateToolbarState() {
         const commands = ['bold', 'underline', 'insertOrderedList'];
         
+        // 确定当前活动的编辑区域
+        const activeEditArea = document.querySelector('.edit-textarea') || document.getElementById('noteInput');
+        if (!activeEditArea) return;
+        
+        // 获取当前活动编辑区域对应的工具栏
+        let toolbar;
+        if (activeEditArea.classList.contains('edit-textarea')) {
+            // 编辑卡片的工具栏
+            toolbar = activeEditArea.nextElementSibling;
+        } else {
+            // 编辑区的工具栏
+            toolbar = activeEditArea.parentElement.querySelector('.editor-toolbar');
+        }
+        
+        if (!toolbar) return;
+        
+        // 只更新当前工具栏中的按钮状态
         commands.forEach(command => {
-            const button = document.querySelector(`.editor-btn[data-command="${command}"]`);
+            const button = toolbar.querySelector(`.editor-btn[data-command="${command}"]`);
             if (button) {
                 try {
                     const isActive = document.queryCommandState(command);

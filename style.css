@@ -341,17 +341,19 @@ body {
 /* 笔记输入框 */
 #noteInput {
     width: 100%;
-    min-height: 120px;
+    min-height: 100%;
+    max-height: 100%;
     padding: var(--spacing-md);
-    border: 1px solid var(--border-color);
+    border: none;
     border-radius: var(--border-radius);
     font-family: inherit;
     font-size: var(--font-size-base);
     line-height: 1.6;
-    resize: vertical;
+    resize: none;
     transition: all var(--transition-fast);
     background: var(--bg-color);
     color: var(--text-color);
+    overflow-y: auto;
 }
 
 #noteInput:focus {
@@ -849,6 +851,7 @@ body {
     margin-bottom: 12px;
     overflow-y: auto;
     flex: 1;
+    scroll-behavior: smooth;
 }
 
 .edit-textarea:focus {
