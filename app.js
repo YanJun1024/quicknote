@@ -17,6 +17,9 @@ class FlomoWebApp {
         
         this.domCache = {};
         
+        // 绑定方法到this
+        this.insertLink = this.insertLink.bind(this);
+        
         this.init();
     }
     
@@ -94,6 +97,175 @@ class FlomoWebApp {
         };
         
         reader.readAsDataURL(file);
+    }
+    
+    handleAttachmentUpload(file) {
+        if (!file) return;
+        
+        // 检查文件大小，限制为5MB
+        if (file.size > 5 * 1024 * 1024) {
+            this.showToast('文件大小不能超过5MB', 'error');
+            return;
+        }
+        
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+            const base64Data = e.target.result;
+            const fileName = file.name;
+            const fileType = file.type;
+            
+            // 在编辑区插入附件链接
+            const input = document.getElementById('noteInput');
+            if (input) {
+                // 创建附件链接元素
+                const attachmentLink = document.createElement('a');
+                attachmentLink.href = base64Data;
+                attachmentLink.download = fileName;
+                attachmentLink.className = 'attachment-link';
+                attachmentLink.innerHTML = `<i class="material-icons">attach_file</i> ${fileName}`;
+                
+                // 插入到编辑区
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    range.deleteContents();
+                    range.insertNode(attachmentLink);
+                    // 在链接后插入一个空格
+                    const space = document.createTextNode(' ');
+                    range.insertNode(space);
+                    range.setStartAfter(space);
+                    range.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                } else {
+                    input.appendChild(attachmentLink);
+                    input.appendChild(document.createTextNode(' '));
+                }
+                
+                this.showToast('附件已添加', 'success');
+            }
+        };
+        
+        reader.onerror = () => {
+            this.showToast('附件上传失败', 'error');
+        };
+        
+        reader.readAsDataURL(file);
+    }
+    
+    insertHashtag() {
+        const input = document.getElementById('noteInput');
+        if (input) {
+            // 插入#号
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                const hashtag = document.createTextNode('#');
+                range.deleteContents();
+                range.insertNode(hashtag);
+                range.setStartAfter(hashtag);
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            } else {
+                input.appendChild(document.createTextNode('#'));
+                // 将光标移到#号后面
+                const range = document.createRange();
+                const textNode = input.lastChild;
+                if (textNode) {
+                    range.setStart(textNode, textNode.length);
+                    range.collapse(true);
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+            }
+            input.focus();
+        }
+    }
+    
+    insertSlash() {
+        const input = document.getElementById('noteInput');
+        if (input) {
+            // 插入/号
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                const slash = document.createTextNode('/');
+                range.deleteContents();
+                range.insertNode(slash);
+                range.setStartAfter(slash);
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            } else {
+                input.appendChild(document.createTextNode('/'));
+                // 将光标移到/号后面
+                const range = document.createRange();
+                const textNode = input.lastChild;
+                if (textNode) {
+                    range.setStart(textNode, textNode.length);
+                    range.collapse(true);
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+            }
+            input.focus();
+        }
+    }
+    
+    insertLink() {
+        const input = document.getElementById('noteInput');
+        if (input) {
+            // 获取当前选中的文本作为链接文本
+            const selection = window.getSelection();
+            const selectedText = selection.toString();
+            
+            // 提示用户输入链接URL
+            const url = prompt('请输入链接URL:', 'http://');
+            if (!url) return; // 用户取消输入
+            
+            // 提示用户输入链接文本，如果没有选中文本
+            const linkText = selectedText || prompt('请输入链接文本:', '链接');
+            if (!linkText) return; // 用户取消输入
+            
+            // 创建链接元素
+            const link = document.createElement('a');
+            link.href = url;
+            link.target = '_blank'; // 在新窗口中打开链接
+            link.rel = 'noopener noreferrer'; // 安全设置
+            link.textContent = linkText;
+            
+            // 插入到编辑区
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                range.deleteContents();
+                range.insertNode(link);
+                // 在链接后插入一个空格
+                const space = document.createTextNode(' ');
+                range.insertNode(space);
+                range.setStartAfter(space);
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            } else {
+                input.appendChild(link);
+                input.appendChild(document.createTextNode(' '));
+                // 将光标移到链接后面
+                const range = document.createRange();
+                const textNode = input.lastChild;
+                if (textNode) {
+                    range.setStart(textNode, textNode.length);
+                    range.collapse(true);
+                    const newSelection = window.getSelection();
+                    newSelection.removeAllRanges();
+                    newSelection.addRange(range);
+                }
+            }
+            input.focus();
+        }
     }
 
     clearAvatar() {
@@ -223,7 +395,7 @@ class FlomoWebApp {
             // 监听键盘快捷键
             noteInput.addEventListener('keydown', (e) => {
                 // 检查是否按下了格式相关的快捷键
-                if ((e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) {
+                if ((e.ctrlKey || e.metaKey) && ['b', 'u'].includes(e.key.toLowerCase())) {
                     // 延迟更新状态，确保命令已经执行
                     setTimeout(() => this.updateToolbarState(), 10);
                 }
@@ -381,6 +553,18 @@ class FlomoWebApp {
                     this.handleAvatarUpload(file);
                 }
                 avatarUpload.value = '';
+            });
+        }
+        
+        // 附件上传事件
+        const attachmentUpload = document.getElementById('attachmentUpload');
+        if (attachmentUpload) {
+            attachmentUpload.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    this.handleAttachmentUpload(file);
+                }
+                attachmentUpload.value = '';
             });
         }
     }
@@ -1315,7 +1499,7 @@ class FlomoWebApp {
     }
     
     updateToolbarState() {
-        const commands = ['bold', 'italic', 'underline', 'insertUnorderedList', 'insertOrderedList'];
+        const commands = ['bold', 'underline', 'insertOrderedList'];
         
         commands.forEach(command => {
             const button = document.querySelector(`.editor-btn[data-command="${command}"]`);
@@ -1338,4 +1522,11 @@ class FlomoWebApp {
 
 document.addEventListener('DOMContentLoaded', () => {
     window.flomoApp = new FlomoWebApp();
+    
+    // 添加全局函数用于测试链接功能
+    window.testInsertLink = function() {
+        alert('testInsertLink called');
+        console.log('testInsertLink called');
+        window.flomoApp.insertLink();
+    };
 });

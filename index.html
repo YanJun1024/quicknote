@@ -60,12 +60,17 @@
             z-index: 10;
         }
         .editor-btn {
-            padding: 4px 8px;
+            padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
             background-color: white;
             cursor: pointer;
             font-size: 14px;
+            min-width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .editor-btn:hover {
             background-color: #e8f0fe;
@@ -74,6 +79,29 @@
             background-color: #e3f2fd;
             border-color: #2196f3;
             color: #1976d2;
+        }
+        .editor-btn i {
+            font-size: 18px;
+        }
+        .attachment-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            margin: 0 4px;
+            background-color: #f5f5f5;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            text-decoration: none;
+            color: #333;
+            font-size: 14px;
+        }
+        .attachment-link:hover {
+            background-color: #e8f0fe;
+            border-color: #2196f3;
+        }
+        .attachment-link i {
+            margin-right: 4px;
+            font-size: 16px;
         }
         .editor-content:focus {
             outline: none;
@@ -135,11 +163,14 @@
                             <div class="editor-content-wrapper">
                                 <div class="editor-content" contenteditable="true" id="noteInput" placeholder="输入你的想法... 使用 #标签/子标签 格式"></div>
                                 <div class="editor-toolbar">
+                                    <button class="editor-btn" onclick="flomoApp.insertHashtag();">#</button>
+                                    <button class="editor-btn" onclick="flomoApp.insertSlash();">/</button>
                                     <button class="editor-btn" data-command="bold" onclick="document.execCommand('bold', false, null); flomoApp.updateToolbarState();"><b>B</b></button>
-                                    <button class="editor-btn" data-command="italic" onclick="document.execCommand('italic', false, null); flomoApp.updateToolbarState();"><i>I</i></button>
                                     <button class="editor-btn" data-command="underline" onclick="document.execCommand('underline', false, null); flomoApp.updateToolbarState();"><u>U</u></button>
-                                    <button class="editor-btn" data-command="insertUnorderedList" onclick="document.execCommand('insertUnorderedList', false, null); flomoApp.updateToolbarState();">• 列表</button>
-                                    <button class="editor-btn" data-command="insertOrderedList" onclick="document.execCommand('insertOrderedList', false, null); flomoApp.updateToolbarState();">1. 列表</button>
+                                    <button class="editor-btn" data-command="insertOrderedList" onclick="document.execCommand('insertOrderedList', false, null); flomoApp.updateToolbarState();"><i class="material-icons">format_list_numbered</i></button>
+                                    <button class="editor-btn" onclick="flomoApp.insertLink();"><i class="material-icons">link</i></button>
+                                    <button class="editor-btn" onclick="document.getElementById('attachmentUpload').click();"><i class="material-icons">attach_file</i></button>
+                                    <input type="file" id="attachmentUpload" accept="*" style="display: none;">
                                 </div>
                             </div>
                         </div>
@@ -284,5 +315,15 @@
     </div>
 
     <script src="app.js"></script>
+    <script>
+        // 页面加载完成后测试链接功能
+        window.addEventListener('load', function() {
+            console.log('Page loaded, testing insertLink method');
+            setTimeout(function() {
+                console.log('Calling window.flomoApp.insertLink()');
+                window.flomoApp.insertLink();
+            }, 1000);
+        });
+    </script>
 </body>
 </html>
