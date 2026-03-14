@@ -2131,3 +2131,69 @@ a:hover {
         font-size: 20px;
     }
 }
+/* 编辑器滚动保护样式 */
+.editor-content.scrolled-bottom {
+    scroll-padding-bottom: 70px;
+}
+
+/* 确保光标在工具栏上方时有足够的空间 */
+.editor-content:focus {
+    outline: none;
+}
+
+/* 当编辑器内容较多时的优化 */
+.editor-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.editor-content::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 4px;
+}
+
+.editor-content::-webkit-scrollbar-thumb {
+    background: var(--text-tertiary);
+    border-radius: 4px;
+}
+
+.editor-content::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
+
+/* 编辑卡片的工具栏样式优化 */
+.note-card.editing .editor-toolbar {
+    position: sticky;
+    bottom: 0;
+    background-color: var(--bg-color);
+    border-top: 1px solid var(--border-split);
+    margin-top: 8px;
+    padding: 6px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.05);
+}
+
+/* 确保编辑卡片中的内容区域有足够的内边距 */
+.note-card.editing .edit-textarea {
+    padding-bottom: 50px !important;
+    min-height: 180px !important;
+    max-height: 230px !important;
+    scroll-padding-bottom: 60px;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+    .editor-toolbar {
+        gap: 2px;
+        padding: 4px;
+    }
+    
+    .editor-btn {
+        padding: 4px 6px;
+        min-width: 28px;
+        height: 28px;
+    }
+    
+    .editor-content {
+        padding-bottom: 50px;
+    }
+}

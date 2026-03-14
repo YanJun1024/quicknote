@@ -39,6 +39,72 @@ class FlomoWebApp {
         this.initResizeObserver();
         this.loadAvatar();
         this.setupOfflineDetection();
+        this.initEditorScrollProtection(); // 新增：初始化光标保护
+    }
+
+    // 新增：编辑器滚动保护初始化
+    initEditorScrollProtection() {
+        const editor = document.getElementById('noteInput');
+        if (!editor) return;
+        
+        // 监听滚动事件，检测是否滚动到底部
+        editor.addEventListener('scroll', () => {
+            const isScrolledToBottom = 
+                editor.scrollHeight - editor.scrollTop <= editor.clientHeight + 20;
+            
+            if (isScrolledToBottom) {
+                editor.classList.add('scrolled-bottom');
+            } else {
+                editor.classList.remove('scrolled-bottom');
+            }
+        });
+        
+        // 监听光标位置变化
+        editor.addEventListener('keyup', () => {
+            this.ensureCursorVisible();
+        });
+        
+        editor.addEventListener('click', () => {
+            this.ensureCursorVisible();
+        });
+        
+        editor.addEventListener('selectionchange', () => {
+            this.ensureCursorVisible();
+        });
+        
+        // 监听输入事件
+        editor.addEventListener('input', () => {
+            setTimeout(() => this.ensureCursorVisible(), 10);
+        });
+    }
+
+    // 新增：确保光标可见
+    ensureCursorVisible() {
+        const editor = document.getElementById('noteInput');
+        if (!editor) return;
+        
+        const selection = window.getSelection();
+        if (selection.rangeCount === 0) return;
+        
+        const range = selection.getRangeAt(0);
+        const rangeRect = range.getBoundingClientRect();
+        const editorRect = editor.getBoundingClientRect();
+        const toolbar = document.querySelector('.editor-toolbar');
+        
+        if (!toolbar) return;
+        
+        const toolbarRect = toolbar.getBoundingClientRect();
+        
+        // 如果光标位置接近工具栏（距离小于40px）
+        if (rangeRect.bottom > toolbarRect.top - 40) {
+            // 计算需要滚动的距离，使光标在工具栏上方40px处
+            const scrollNeeded = rangeRect.bottom - toolbarRect.top + 50;
+            
+            editor.scrollBy({
+                top: scrollNeeded,
+                behavior: 'smooth'
+            });
+        }
     }
 
     setupOfflineDetection() {
@@ -144,6 +210,9 @@ class FlomoWebApp {
                 }
                 
                 this.showToast('附件已添加', 'success');
+                
+                // 确保光标可见
+                setTimeout(() => this.ensureCursorVisible(), 50);
             }
         };
         
@@ -188,6 +257,8 @@ class FlomoWebApp {
             input.focus();
             // 显示标签建议
             this.showTagSuggestions(input);
+            // 确保光标可见
+            setTimeout(() => this.ensureCursorVisible(), 50);
         }
     }
     
@@ -364,6 +435,9 @@ class FlomoWebApp {
         // 触发输入事件以更新标签预览
         const inputEvent = new Event('input', { bubbles: true });
         input.dispatchEvent(inputEvent);
+        
+        // 确保光标可见
+        setTimeout(() => this.ensureCursorVisible(), 50);
     }
     
     insertSlash() {
@@ -398,6 +472,8 @@ class FlomoWebApp {
                 }
             }
             input.focus();
+            // 确保光标可见
+            setTimeout(() => this.ensureCursorVisible(), 50);
         }
     }
     
@@ -454,6 +530,8 @@ class FlomoWebApp {
                 }
             }
             input.focus();
+            // 确保光标可见
+            setTimeout(() => this.ensureCursorVisible(), 50);
         }
     }
 
@@ -630,6 +708,9 @@ class FlomoWebApp {
                             document.execCommand('insertText', false, ' ');
                         }
                     }
+                    
+                    // 确保光标可见
+                    setTimeout(() => this.ensureCursorVisible(), 50);
                 }
                 // 检查是否正在输入标签，显示标签建议
                 else if (e.key.match(/[\w\u4e00-\u9fa5\/_-]/)) {
@@ -737,8 +818,8 @@ class FlomoWebApp {
 
         // 窗口关闭前备份提醒
         window.addEventListener('beforeunload', (e) => {
-            const inputContent = document.getElementById('noteInput')?.value.trim();
-            if (inputContent && inputContent !== '') {
+            const inputContent = document.getElementById('noteInput')?.innerHTML.trim();
+            if (inputContent && inputContent !== '' && inputContent !== '<br>') {
                 e.preventDefault();
                 e.returnValue = '您有未保存的笔记内容。确定要离开吗？';
                 return e.returnValue;
@@ -1028,7 +1109,18 @@ class FlomoWebApp {
     checkAndShowTagNotes(content) {
         const tagRegex = /#([\w\u4e00-\u9fa5\/\-_]+)/g;
         const input = document.getElementById('noteInput');
-        const cursorPos = input.selectionStart;
+        
+        // 获取光标位置（对于contenteditable元素需要特殊处理）
+        let cursorPos = 0;
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const tempDiv = document.createElement('div');
+            tempDiv.appendChild(range.cloneContents());
+            const textBeforeCursor = range.startContainer.textContent?.substring(0, range.startOffset) || '';
+            cursorPos = textBeforeCursor.length;
+        }
+        
         const textBeforeCursor = content.substring(0, cursorPos);
         
         const beforeCursorMatches = textBeforeCursor.match(tagRegex);
@@ -1117,7 +1209,7 @@ class FlomoWebApp {
         const input = document.getElementById('noteInput');
         const content = input.innerHTML.trim();
         
-        if (!content) {
+        if (!content || content === '<br>') {
             this.showToast('笔记内容不能为空', 'error');
             input.focus();
             return;
@@ -1330,7 +1422,7 @@ class FlomoWebApp {
                             `).join('')}
                         </div>
                         <div class="note-actions">
-                            <span class="note-time" title="${new Date(note.timestamp).toLocaleString()}">${note.timeDisplay}</span>
+                            <span class="note-time" title="${new Date(note.timestamp).toLocaleString()}">${note.timeDisplay || this.formatTime(new Date(note.timestamp))}</span>
                             <button class="btn-icon edit-btn" data-note-id="${note.id}" title="编辑 (双击卡片)">
                                 <i class="material-icons">edit</i>
                             </button>
@@ -1526,6 +1618,9 @@ class FlomoWebApp {
                                 document.execCommand('insertText', false, ' ');
                             }
                         }
+                        
+                        // 确保光标可见
+                        setTimeout(() => this.ensureCursorVisible(), 50);
                     }
                     // 检查是否正在输入标签，显示标签建议
                     else if (e.key.match(/[\w\u4e00-\u9fa5\/_-]/)) {
@@ -1565,7 +1660,7 @@ class FlomoWebApp {
 
     async saveEditedNote(noteId, newContent) {
         const content = newContent.trim();
-        if (!content) {
+        if (!content || content === '<br>') {
             this.showToast('笔记内容不能为空', 'error');
             return;
         }

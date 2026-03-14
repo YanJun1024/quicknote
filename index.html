@@ -29,62 +29,113 @@
             -webkit-font-feature-settings: 'liga';
             -webkit-font-smoothing: antialiased;
         }
-        /* 富文本编辑器样式 */
+        /* 富文本编辑器样式 - 优化版 */
         .editor-container {
             border: 1px solid #e0e0e0;
             border-radius: 4px;
-            overflow: hidden;
+            overflow: visible; /* 改为 visible 允许工具栏浮动效果 */
             background-color: white;
+            position: relative;
+            transition: box-shadow 0.2s ease;
         }
+        
+        .editor-container:focus-within {
+            border-color: #2196f3;
+            box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+        }
+        
         .editor-content-wrapper {
             position: relative;
             height: 200px;
+            overflow: hidden;
+            border-radius: 4px 4px 0 0;
+            background-color: white;
         }
+        
         .editor-content {
             height: 100%;
-            padding: 10px;
-            padding-bottom: 40px;
+            padding: 12px;
+            padding-bottom: 56px; /* 增加底部内边距，为工具栏留出足够空间 */
             overflow-y: auto;
             min-height: 100%;
             max-height: 100%;
+            line-height: 1.6;
+            font-size: 14px;
+            scroll-behavior: smooth;
+            scroll-padding-bottom: 60px; /* 确保滚动时底部有足够空间 */
         }
+        
+        /* 当内容滚动到底部时的样式 */
+        .editor-content.scrolled-bottom {
+            scroll-padding-bottom: 70px;
+        }
+        
         .editor-toolbar {
-            position: absolute;
-            bottom: 2px;
-            left: 2px;
-            right: 2px;
+            position: sticky; /* 使用 sticky 定位 */
+            bottom: 0;
+            left: 0;
+            right: 0;
             display: flex;
-            gap: 8px;
-            padding: 5px 10px;
+            gap: 4px;
+            padding: 6px 10px;
             background-color: white;
             border-top: 1px solid #e0e0e0;
             border-radius: 0 0 4px 4px;
-            z-index: 10;
+            z-index: 20;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.03);
+            transition: all 0.2s ease;
+            flex-wrap: wrap;
         }
+        
+        /* 当编辑器获得焦点时，工具栏样式变化 */
+        .editor-container:focus-within .editor-toolbar {
+            border-top-color: #2196f3;
+            box-shadow: 0 -2px 8px rgba(33, 150, 243, 0.1);
+        }
+        
+        /* 当内容滚动到底部时，工具栏显示更明显的阴影 */
+        .editor-content.is-scrolled-bottom + .editor-toolbar {
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
+        }
+        
         .editor-btn {
-            padding: 8px;
+            padding: 6px 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
             background-color: white;
             cursor: pointer;
             font-size: 14px;
-            min-width: 36px;
-            height: 36px;
+            min-width: 32px;
+            height: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: all 0.2s ease;
+            color: #555;
         }
+        
         .editor-btn:hover {
             background-color: #e8f0fe;
+            border-color: #2196f3;
+            color: #1976d2;
+            transform: translateY(-1px);
         }
+        
+        .editor-btn:active {
+            transform: translateY(0);
+        }
+        
         .editor-btn.active {
             background-color: #e3f2fd;
             border-color: #2196f3;
             color: #1976d2;
+            font-weight: 500;
         }
+        
         .editor-btn i {
             font-size: 18px;
         }
+        
         .attachment-link {
             display: inline-flex;
             align-items: center;
@@ -97,55 +148,93 @@
             color: #333;
             font-size: 14px;
         }
+        
         .attachment-link:hover {
             background-color: #e8f0fe;
             border-color: #2196f3;
         }
+        
         .attachment-link i {
             margin-right: 4px;
             font-size: 16px;
         }
+        
         .editor-content:focus {
             outline: none;
-            border-color: #2196f3;
         }
+        
         .editor-content ul, .editor-content ol {
             margin: 8px 0;
             padding-left: 24px;
         }
+        
         .editor-content li {
             margin: 4px 0;
             line-height: 1.6;
         }
+        
         .note-content ul, .note-content ol {
             margin: 8px 0;
             padding-left: 24px;
         }
+        
         .note-content li {
             margin: 4px 0;
             line-height: 1.6;
         }
+        
+        /* 深色主题适配 */
+        [data-theme="dark"] .editor-container {
+            background-color: #1f1f1f;
+            border-color: #434343;
+        }
+        
+        [data-theme="dark"] .editor-content {
+            background-color: #1f1f1f;
+            color: rgba(255,255,255,0.85);
+        }
+        
+        [data-theme="dark"] .editor-toolbar {
+            background-color: #2a2a2a;
+            border-top-color: #434343;
+        }
+        
+        [data-theme="dark"] .editor-btn {
+            background-color: #2a2a2a;
+            border-color: #434343;
+            color: rgba(255,255,255,0.65);
+        }
+        
+        [data-theme="dark"] .editor-btn:hover {
+            background-color: #3a3a3a;
+            border-color: #177ddc;
+            color: #177ddc;
+        }
+        
+        [data-theme="dark"] .editor-btn.active {
+            background-color: rgba(23, 125, 220, 0.2);
+            border-color: #177ddc;
+            color: #177ddc;
+        }
     </style>
 </head>
 <body data-theme="light">
+    <!-- 其余 HTML 结构保持不变 -->
     <div class="app-container">
         <header class="app-header">
             <div class="header-left">
                 <h1>📝 QuikNote</h1>
                 <p class="subtitle">轻量级笔记与灵感捕捉工具</p>
-                <!-- 测试Github -->
             </div>
             <div class="header-right">
-        <!-- 替换原来的总笔记数徽章为头像上传区域 -->
-        <div class="user-avatar" id="userAvatar" title="点击上传头像">
-            <img src="" alt="用户头像" id="avatarImage" style="display: none;">
-            <span class="avatar-placeholder" id="avatarPlaceholder">
-                <i class="material-icons">person</i>
-            </span>
-            <!-- <span class="avatar-badge" id="avatarNotesBadge">0</span> -->
-        </div>
-        <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
-        </div>
+                <div class="user-avatar" id="userAvatar" title="点击上传头像">
+                    <img src="" alt="用户头像" id="avatarImage" style="display: none;">
+                    <span class="avatar-placeholder" id="avatarPlaceholder">
+                        <i class="material-icons">person</i>
+                    </span>
+                </div>
+                <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+            </div>
         </header>
 
         <main class="main-content">
@@ -239,17 +328,14 @@
         <footer class="app-footer">
             <div class="footer-toolbar">
                 <div class="toolbar-left">
-                    <!-- 合并后的备份状态指示器 -->
                     <div id="backupStatus" class="toolbar-btn active" title="点击查看备份详情">
                         <i class="material-icons">storage</i>
                         <span class="backup-status-text">本地储存数据</span>
-                        <!-- <span class="backup-today-badge" id="backupTodayBadge">今日:0</span> -->
                     </div>
                 </div>
                 
                 <div class="toolbar-center">
                     <div class="action-buttons">
-                        <!-- 手动备份按钮 -->
                         <button id="manualBackupBtn" class="toolbar-btn" title="手动触发备份 (立即下载备份文件)">
                             <i class="material-icons">backup</i>
                             <span class="btn-label">手动备份</span>
