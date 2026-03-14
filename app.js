@@ -200,14 +200,32 @@ class FlomoWebApp {
         if (selection.rangeCount === 0) return;
         
         const range = selection.getRangeAt(0);
-        const textNode = range.startContainer;
-        const textBeforeCursor = textNode.textContent.substring(0, range.startOffset);
+        
+        // 获取光标前的文本，处理不同类型的startContainer
+        let textBeforeCursor = '';
+        if (range.startContainer.nodeType === 3) { // 文本节点
+            textBeforeCursor = range.startContainer.textContent.substring(0, range.startOffset);
+        } else if (range.startContainer.nodeType === 1) { // 元素节点
+            // 创建一个临时范围来获取光标前的文本
+            const tempRange = document.createRange();
+            tempRange.setStart(range.startContainer, 0);
+            tempRange.setEnd(range.startContainer, range.startOffset);
+            textBeforeCursor = tempRange.toString();
+        }
         
         // 检查是否正在输入标签
         const tagMatch = textBeforeCursor.match(/#([\w\u4e00-\u9fa5\/_-]*)$/);
         if (!tagMatch) return;
         
         const tagPrefix = tagMatch[1];
+        
+        // 保存当前光标位置信息，供点击时使用
+        this._tagSuggestionCursorInfo = {
+            input: input,
+            startContainer: range.startContainer,
+            startOffset: range.startOffset,
+            tagPrefix: tagPrefix
+        };
         
         // 过滤匹配的标签
         const matchingTags = Array.from(this.tags).filter(tag => 
@@ -239,7 +257,7 @@ class FlomoWebApp {
             suggestionItem.innerHTML = `<span class="tag">#${tag}</span>`;
             
             suggestionItem.addEventListener('click', () => {
-                this.insertSuggestedTag(input, tag, tagPrefix.length);
+                this.insertSuggestedTag('#' + tag);
                 this.hideTagSuggestions();
             });
             
@@ -278,22 +296,70 @@ class FlomoWebApp {
         }
     }
     
-    insertSuggestedTag(input, tag, prefixLength) {
+    insertSuggestedTag(tag) {
+        // 使用保存的光标位置信息
+        const cursorInfo = this._tagSuggestionCursorInfo;
+        if (!cursorInfo) return;
+        
+        const { input, startContainer, startOffset, tagPrefix } = cursorInfo;
+        
         const selection = window.getSelection();
-        if (selection.rangeCount === 0) return;
         
-        const range = selection.getRangeAt(0);
-        const textNode = range.startContainer;
+        // 计算需要删除的长度（标签前缀 + #号）
+        const deleteLength = tagPrefix.length + 1;
         
-        // 删除已输入的前缀
-        const newText = textNode.textContent.substring(0, range.startOffset - prefixLength) + tag;
-        textNode.textContent = newText;
+        // 处理不同类型的startContainer
+        if (startContainer.nodeType === 3) { // 文本节点
+            const textNode = startContainer;
+            const safeDeleteLength = Math.min(deleteLength, startOffset);
+            const newText = textNode.textContent.substring(0, startOffset - safeDeleteLength) + tag;
+            textNode.textContent = newText;
+            
+            const newCursorPosition = startOffset - safeDeleteLength + tag.length;
+            const newRange = document.createRange();
+            newRange.setStart(textNode, newCursorPosition);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+        } else {
+            // 对于元素节点，使用不同的方法
+            // 先创建新的文本内容
+            const textContent = input.innerText || input.textContent;
+            
+            // 从保存的startContainer获取文本
+            let textBeforeCursor = '';
+            const tempRange = document.createRange();
+            tempRange.setStart(startContainer, 0);
+            tempRange.setEnd(startContainer, startOffset);
+            textBeforeCursor = tempRange.toString();
+            
+            // 找到标签开始的位置
+            const lastTagIndex = textBeforeCursor.lastIndexOf('#');
+            if (lastTagIndex !== -1) {
+                // 删除从标签开始到光标位置的内容，然后插入新标签
+                const beforeTag = textContent.substring(0, lastTagIndex);
+                const newText = beforeTag + tag;
+                input.innerText = newText;
+                
+                // 设置光标位置到新标签末尾
+                const newCursorPosition = beforeTag.length + tag.length;
+                const newRange = document.createRange();
+                if (input.firstChild && input.firstChild.nodeType === 3) {
+                    newRange.setStart(input.firstChild, Math.min(newCursorPosition, input.firstChild.length));
+                } else {
+                    newRange.setStart(input, Math.min(newCursorPosition, input.childNodes.length));
+                }
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+            } else {
+                // 如果找不到标签，直接插入
+                document.execCommand('insertText', false, tag);
+            }
+        }
         
-        // 设置光标位置到标签末尾
-        range.setStart(textNode, range.startOffset - prefixLength + tag.length);
-        range.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(range);
+        // 清理保存的光标信息
+        this._tagSuggestionCursorInfo = null;
         
         // 触发输入事件以更新标签预览
         const inputEvent = new Event('input', { bubbles: true });
@@ -472,12 +538,17 @@ class FlomoWebApp {
     async loadData() {
         try {
             const notes = await this.apiRequest('/notes');
-            const tags = await this.apiRequest('/tags');
             
             this.notes = notes;
-            this.tags = new Set(tags);
-            
             this.notes.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            const allTags = new Set();
+            this.notes.forEach(note => {
+                if (note.tags && Array.isArray(note.tags)) {
+                    note.tags.forEach(tag => allTags.add(tag));
+                }
+            });
+            this.tags = allTags;
         } catch (error) {
             console.error('加载数据失败:', error);
             this.notes = [];
@@ -528,42 +599,35 @@ class FlomoWebApp {
                     e.preventDefault();
                     this.saveNote();
                 }
-                // 检查是否按下了回车，并且当前正在输入标签
+                // 检查是否按下了回车
                 else if (e.key === 'Enter') {
-                    // 检查是否正在输入标签
+                    // 先隐藏标签建议
+                    this.hideTagSuggestions();
+                    
+                    // 处理标签确认
                     const selection = window.getSelection();
                     if (selection.rangeCount > 0) {
                         const range = selection.getRangeAt(0);
                         
-                        // 获取光标前的文本，处理不同类型的startContainer
+                        // 获取光标前的文本
                         let textBeforeCursor = '';
-                        if (range.startContainer.nodeType === 3) { // 文本节点
+                        if (range.startContainer.nodeType === 3) {
                             textBeforeCursor = range.startContainer.textContent.substring(0, range.startOffset);
-                        } else if (range.startContainer.nodeType === 1) { // 元素节点
-                            // 创建一个临时范围来获取光标前的文本
+                        } else if (range.startContainer.nodeType === 1) {
                             const tempRange = document.createRange();
                             tempRange.setStart(range.startContainer, 0);
                             tempRange.setEnd(range.startContainer, range.startOffset);
                             textBeforeCursor = tempRange.toString();
                         }
                         
-                        const tagRegex = /#([\w\u4e00-\u9fa5\/_-]+)$/;
+                        // 检查是否有未确认的标签（#开头）
+                        const tagRegex = /#([\w\u4e00-\u9fa5\/_-]*)$/;
                         const match = textBeforeCursor.match(tagRegex);
                         
-                        if (match) {
-                            e.preventDefault();
-                            // 隐藏标签建议
-                            this.hideTagSuggestions();
-                            // 在标签后插入空格
-                            const space = document.createTextNode(' ');
-                            range.insertNode(space);
-                            range.setStartAfter(space);
-                            range.collapse(true);
-                            selection.removeAllRanges();
-                            selection.addRange(range);
-                            // 触发输入事件以更新标签预览
-                            const inputEvent = new Event('input', { bubbles: true });
-                            e.target.dispatchEvent(inputEvent);
+                        if (match && match[1].length > 0) {
+                            // 标签已输入完成，按回车时自动确认
+                            // 插入空格来确认标签
+                            document.execCommand('insertText', false, ' ');
                         }
                     }
                 }
@@ -830,13 +894,15 @@ class FlomoWebApp {
 
     handleTagCloudClick(e) {
         const target = e.target;
+        
+        // 先检查是否是删除按钮，如果是则直接返回（因为已经有onclick处理了）
+        if (target.classList.contains('tag-delete-btn') || target.closest('.tag-delete-btn')) {
+            return;
+        }
+        
         if (target.classList.contains('tag') || target.closest('.tag')) {
             const tag = target.dataset.tag || target.closest('.tag')?.dataset.tag;
             if (tag) this.searchByTag(tag);
-        } 
-        else if (target.classList.contains('tag-delete-btn') || target.closest('.tag-delete-btn')) {
-            const tag = target.dataset.tag || target.closest('[data-tag]')?.dataset.tag;
-            if (tag) this.deleteTag(tag);
         }
     }
 
@@ -1123,7 +1189,7 @@ class FlomoWebApp {
     async deleteTag(tagToDelete) {
         if (confirm(`确定要删除标签 "#${tagToDelete}" 吗？\n\n这将从所有包含此标签的笔记中移除该标签。`)) {
             try {
-                const notesToUpdate = this.notes.filter(note => note.tags.includes(tagToDelete));
+                const notesToUpdate = this.notes.filter(note => note.tags && note.tags.includes(tagToDelete));
                 
                 for (const note of notesToUpdate) {
                     const updatedTags = note.tags.filter(tag => tag !== tagToDelete);
@@ -1134,9 +1200,11 @@ class FlomoWebApp {
                             tags: updatedTags 
                         })
                     });
+                    note.tags = updatedTags;
                 }
                 
                 await this.loadData();
+                this.render();
                 
                 if (this.currentSearch === tagToDelete) {
                     this.clearSearch();
@@ -1144,6 +1212,8 @@ class FlomoWebApp {
                 this.showToast(`标签 "#${tagToDelete}" 已删除`, 'success');
             } catch (error) {
                 console.error('删除标签失败:', error);
+                await this.loadData();
+                this.render();
                 this.showToast('删除标签失败，请重试', 'error');
             }
         }
@@ -1293,6 +1363,15 @@ class FlomoWebApp {
             </div>
         `).join('');
         
+        // 为所有删除按钮添加事件监听器
+        container.querySelectorAll('.tag-delete-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const tag = btn.dataset.tag;
+                this.deleteTag(tag);
+            });
+        });
+        
         document.getElementById('tagCount').textContent = this.tags.size;
     }
 
@@ -1416,41 +1495,35 @@ class FlomoWebApp {
                     if ((e.ctrlKey || e.metaKey) && ['b', 'u'].includes(e.key.toLowerCase())) {
                         setTimeout(() => this.updateToolbarState(), 10);
                     }
-                    // 检查是否按下了回车，并且当前正在输入标签
+                    // 检查是否按下了回车
                     else if (e.key === 'Enter') {
+                        // 先隐藏标签建议
+                        this.hideTagSuggestions();
+                        
+                        // 处理标签确认
                         const selection = window.getSelection();
                         if (selection.rangeCount > 0) {
                             const range = selection.getRangeAt(0);
                             
-                            // 获取光标前的文本，处理不同类型的startContainer
+                            // 获取光标前的文本
                             let textBeforeCursor = '';
-                            if (range.startContainer.nodeType === 3) { // 文本节点
+                            if (range.startContainer.nodeType === 3) {
                                 textBeforeCursor = range.startContainer.textContent.substring(0, range.startOffset);
-                            } else if (range.startContainer.nodeType === 1) { // 元素节点
-                                // 创建一个临时范围来获取光标前的文本
+                            } else if (range.startContainer.nodeType === 1) {
                                 const tempRange = document.createRange();
                                 tempRange.setStart(range.startContainer, 0);
                                 tempRange.setEnd(range.startContainer, range.startOffset);
                                 textBeforeCursor = tempRange.toString();
                             }
                             
-                            const tagRegex = /#([\w\u4e00-\u9fa5\/_-]+)$/;
+                            // 检查是否有未确认的标签（#开头）
+                            const tagRegex = /#([\w\u4e00-\u9fa5\/_-]*)$/;
                             const match = textBeforeCursor.match(tagRegex);
                             
-                            if (match) {
-                                e.preventDefault();
-                                // 隐藏标签建议
-                                this.hideTagSuggestions();
-                                // 在标签后插入空格
-                                const space = document.createTextNode(' ');
-                                range.insertNode(space);
-                                range.setStartAfter(space);
-                                range.collapse(true);
-                                selection.removeAllRanges();
-                                selection.addRange(range);
-                                // 触发输入事件以更新标签预览
-                                const inputEvent = new Event('input', { bubbles: true });
-                                e.target.dispatchEvent(inputEvent);
+                            if (match && match[1].length > 0) {
+                                // 标签已输入完成，按回车时自动确认
+                                // 插入空格来确认标签
+                                document.execCommand('insertText', false, ' ');
                             }
                         }
                     }
