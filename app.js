@@ -186,7 +186,118 @@ class FlomoWebApp {
                 }
             }
             input.focus();
+            // 显示标签建议
+            this.showTagSuggestions(input);
         }
+    }
+    
+    showTagSuggestions(input) {
+        // 移除旧的标签建议
+        this.hideTagSuggestions();
+        
+        // 获取当前光标位置
+        const selection = window.getSelection();
+        if (selection.rangeCount === 0) return;
+        
+        const range = selection.getRangeAt(0);
+        const textNode = range.startContainer;
+        const textBeforeCursor = textNode.textContent.substring(0, range.startOffset);
+        
+        // 检查是否正在输入标签
+        const tagMatch = textBeforeCursor.match(/#([\w\u4e00-\u9fa5\/_-]*)$/);
+        if (!tagMatch) return;
+        
+        const tagPrefix = tagMatch[1];
+        
+        // 过滤匹配的标签
+        const matchingTags = Array.from(this.tags).filter(tag => 
+            tag.toLowerCase().startsWith(tagPrefix.toLowerCase())
+        ).slice(0, 5); // 最多显示5个建议
+        
+        if (matchingTags.length === 0) return;
+        
+        // 创建标签建议容器
+        const suggestionsContainer = document.createElement('div');
+        suggestionsContainer.className = 'tag-suggestions';
+        suggestionsContainer.style.position = 'absolute';
+        suggestionsContainer.style.backgroundColor = 'var(--bg-color)';
+        suggestionsContainer.style.border = '1px solid var(--border-color)';
+        suggestionsContainer.style.borderRadius = 'var(--border-radius)';
+        suggestionsContainer.style.boxShadow = 'var(--shadow)';
+        suggestionsContainer.style.zIndex = '1000';
+        suggestionsContainer.style.maxHeight = '200px';
+        suggestionsContainer.style.overflowY = 'auto';
+        
+        // 添加标签建议项
+        matchingTags.forEach(tag => {
+            const suggestionItem = document.createElement('div');
+            suggestionItem.className = 'tag-suggestion-item';
+            suggestionItem.style.padding = '8px 12px';
+            suggestionItem.style.cursor = 'pointer';
+            suggestionItem.style.transition = 'background-color var(--transition-fast)';
+            suggestionItem.style.whiteSpace = 'nowrap';
+            suggestionItem.innerHTML = `<span class="tag">#${tag}</span>`;
+            
+            suggestionItem.addEventListener('click', () => {
+                this.insertSuggestedTag(input, tag, tagPrefix.length);
+                this.hideTagSuggestions();
+            });
+            
+            suggestionItem.addEventListener('mouseenter', () => {
+                suggestionItem.style.backgroundColor = 'var(--bg-hover)';
+            });
+            
+            suggestionItem.addEventListener('mouseleave', () => {
+                suggestionItem.style.backgroundColor = 'transparent';
+            });
+            
+            suggestionsContainer.appendChild(suggestionItem);
+        });
+        
+        // 定位标签建议容器
+        const rect = range.getBoundingClientRect();
+        suggestionsContainer.style.left = `${rect.left}px`;
+        suggestionsContainer.style.top = `${rect.bottom + window.scrollY}px`;
+        
+        // 添加到文档
+        document.body.appendChild(suggestionsContainer);
+        
+        // 保存建议容器引用
+        this.tagSuggestionsContainer = suggestionsContainer;
+        
+        // 添加点击外部关闭建议的事件
+        setTimeout(() => {
+            document.addEventListener('click', this.hideTagSuggestions.bind(this), { once: true });
+        }, 100);
+    }
+    
+    hideTagSuggestions() {
+        if (this.tagSuggestionsContainer) {
+            this.tagSuggestionsContainer.remove();
+            this.tagSuggestionsContainer = null;
+        }
+    }
+    
+    insertSuggestedTag(input, tag, prefixLength) {
+        const selection = window.getSelection();
+        if (selection.rangeCount === 0) return;
+        
+        const range = selection.getRangeAt(0);
+        const textNode = range.startContainer;
+        
+        // 删除已输入的前缀
+        const newText = textNode.textContent.substring(0, range.startOffset - prefixLength) + tag;
+        textNode.textContent = newText;
+        
+        // 设置光标位置到标签末尾
+        range.setStart(textNode, range.startOffset - prefixLength + tag.length);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        
+        // 触发输入事件以更新标签预览
+        const inputEvent = new Event('input', { bubbles: true });
+        input.dispatchEvent(inputEvent);
     }
     
     insertSlash() {
@@ -404,26 +515,73 @@ class FlomoWebApp {
         if (noteInput) {
             // 使用 selectionchange 事件，更高效地监听选择变化
             noteInput.addEventListener('selectionchange', () => this.debounceUpdateToolbarState());
-            // 监听键盘快捷键
+            
+            // 合并键盘事件监听器
             noteInput.addEventListener('keydown', (e) => {
                 // 检查是否按下了格式相关的快捷键
                 if ((e.ctrlKey || e.metaKey) && ['b', 'u'].includes(e.key.toLowerCase())) {
                     // 延迟更新状态，确保命令已经执行
                     setTimeout(() => this.updateToolbarState(), 10);
                 }
+                // 检查是否按下了Ctrl+Enter保存笔记
+                else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    this.saveNote();
+                }
+                // 检查是否按下了回车，并且当前正在输入标签
+                else if (e.key === 'Enter') {
+                    // 检查是否正在输入标签
+                    const selection = window.getSelection();
+                    if (selection.rangeCount > 0) {
+                        const range = selection.getRangeAt(0);
+                        
+                        // 获取光标前的文本，处理不同类型的startContainer
+                        let textBeforeCursor = '';
+                        if (range.startContainer.nodeType === 3) { // 文本节点
+                            textBeforeCursor = range.startContainer.textContent.substring(0, range.startOffset);
+                        } else if (range.startContainer.nodeType === 1) { // 元素节点
+                            // 创建一个临时范围来获取光标前的文本
+                            const tempRange = document.createRange();
+                            tempRange.setStart(range.startContainer, 0);
+                            tempRange.setEnd(range.startContainer, range.startOffset);
+                            textBeforeCursor = tempRange.toString();
+                        }
+                        
+                        const tagRegex = /#([\w\u4e00-\u9fa5\/_-]+)$/;
+                        const match = textBeforeCursor.match(tagRegex);
+                        
+                        if (match) {
+                            e.preventDefault();
+                            // 隐藏标签建议
+                            this.hideTagSuggestions();
+                            // 在标签后插入空格
+                            const space = document.createTextNode(' ');
+                            range.insertNode(space);
+                            range.setStartAfter(space);
+                            range.collapse(true);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                            // 触发输入事件以更新标签预览
+                            const inputEvent = new Event('input', { bubbles: true });
+                            e.target.dispatchEvent(inputEvent);
+                        }
+                    }
+                }
+                // 检查是否正在输入标签，显示标签建议
+                else if (e.key.match(/[\w\u4e00-\u9fa5\/_-]/)) {
+                    setTimeout(() => {
+                        this.showTagSuggestions(e.target);
+                    }, 100);
+                }
+                // 隐藏标签建议
+                else if (e.key === 'Escape') {
+                    this.hideTagSuggestions();
+                }
             });
         }
 
         // 保存笔记
         document.getElementById('saveBtn').addEventListener('click', () => this.saveNote());
-        
-        // 快捷键保存
-        document.getElementById('noteInput').addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                e.preventDefault();
-                this.saveNote();
-            }
-        });
 
         // 搜索输入（防抖）
         document.getElementById('searchInput').addEventListener('input', (e) => {
@@ -1072,9 +1230,9 @@ class FlomoWebApp {
                         <div class="editor-toolbar" style="margin-top: 8px;">
                             <button type="button" class="editor-btn" onclick="flomoApp.insertHashtag();">#</button>
                             <button type="button" class="editor-btn" onclick="flomoApp.insertSlash();">/</button>
-                            <button type="button" class="editor-btn" onclick="document.execCommand('bold', false, null); flomoApp.updateToolbarState();"><b>B</b></button>
-                            <button type="button" class="editor-btn" onclick="document.execCommand('underline', false, null); flomoApp.updateToolbarState();"><u>U</u></button>
-                            <button type="button" class="editor-btn" onclick="document.execCommand('insertOrderedList', false, null); flomoApp.updateToolbarState();"><i class="material-icons">format_list_numbered</i></button>
+                            <button type="button" class="editor-btn" data-command="bold" onclick="document.execCommand('bold', false, null); flomoApp.updateToolbarState();"><b>B</b></button>
+                            <button type="button" class="editor-btn" data-command="underline" onclick="document.execCommand('underline', false, null); flomoApp.updateToolbarState();"><u>U</u></button>
+                            <button type="button" class="editor-btn" data-command="insertOrderedList" onclick="document.execCommand('insertOrderedList', false, null); flomoApp.updateToolbarState();"><i class="material-icons">format_list_numbered</i></button>
                             <button type="button" class="editor-btn" onclick="flomoApp.insertLink();"><i class="material-icons">link</i></button>
                             <button type="button" class="editor-btn" onclick="document.getElementById('attachmentUpload').click();"><i class="material-icons">attach_file</i></button>
                         </div>
@@ -1245,6 +1403,89 @@ class FlomoWebApp {
                 selection.removeAllRanges();
                 selection.addRange(range);
                 editDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // 移除旧的事件监听器，避免累积
+                const oldHandlers = editDiv._eventHandlers || [];
+                oldHandlers.forEach(handler => {
+                    editDiv.removeEventListener('keydown', handler);
+                });
+                
+                // 定义新的事件处理函数
+                const handleKeydown = (e) => {
+                    // 检查是否按下了格式相关的快捷键
+                    if ((e.ctrlKey || e.metaKey) && ['b', 'u'].includes(e.key.toLowerCase())) {
+                        setTimeout(() => this.updateToolbarState(), 10);
+                    }
+                    // 检查是否按下了回车，并且当前正在输入标签
+                    else if (e.key === 'Enter') {
+                        const selection = window.getSelection();
+                        if (selection.rangeCount > 0) {
+                            const range = selection.getRangeAt(0);
+                            
+                            // 获取光标前的文本，处理不同类型的startContainer
+                            let textBeforeCursor = '';
+                            if (range.startContainer.nodeType === 3) { // 文本节点
+                                textBeforeCursor = range.startContainer.textContent.substring(0, range.startOffset);
+                            } else if (range.startContainer.nodeType === 1) { // 元素节点
+                                // 创建一个临时范围来获取光标前的文本
+                                const tempRange = document.createRange();
+                                tempRange.setStart(range.startContainer, 0);
+                                tempRange.setEnd(range.startContainer, range.startOffset);
+                                textBeforeCursor = tempRange.toString();
+                            }
+                            
+                            const tagRegex = /#([\w\u4e00-\u9fa5\/_-]+)$/;
+                            const match = textBeforeCursor.match(tagRegex);
+                            
+                            if (match) {
+                                e.preventDefault();
+                                // 隐藏标签建议
+                                this.hideTagSuggestions();
+                                // 在标签后插入空格
+                                const space = document.createTextNode(' ');
+                                range.insertNode(space);
+                                range.setStartAfter(space);
+                                range.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(range);
+                                // 触发输入事件以更新标签预览
+                                const inputEvent = new Event('input', { bubbles: true });
+                                e.target.dispatchEvent(inputEvent);
+                            }
+                        }
+                    }
+                    // 检查是否正在输入标签，显示标签建议
+                    else if (e.key.match(/[\w\u4e00-\u9fa5\/_-]/)) {
+                        setTimeout(() => {
+                            this.showTagSuggestions(e.target);
+                        }, 100);
+                    }
+                    // 隐藏标签建议
+                    else if (e.key === 'Escape') {
+                        this.hideTagSuggestions();
+                    }
+                };
+                
+                // 保存事件处理函数引用，以便后续移除
+                editDiv._eventHandlers = [handleKeydown];
+                
+                // 添加新的事件监听器
+                editDiv.addEventListener('keydown', handleKeydown);
+                
+                // 移除旧的selectionchange监听器
+                const oldSelectionHandlers = editDiv._selectionHandlers || [];
+                oldSelectionHandlers.forEach(handler => {
+                    editDiv.removeEventListener('selectionchange', handler);
+                });
+                
+                // 定义新的selectionchange处理函数
+                const handleSelectionChange = () => this.debounceUpdateToolbarState();
+                
+                // 保存事件处理函数引用
+                editDiv._selectionHandlers = [handleSelectionChange];
+                
+                // 添加新的selectionchange监听器
+                editDiv.addEventListener('selectionchange', handleSelectionChange);
             }
         }, 50);
     }
