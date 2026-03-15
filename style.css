@@ -1183,6 +1183,22 @@ body {
 
 /* ===== 备份功能相关样式 ===== */
 
+/* 本地存储数据按钮（无悬停效果） */
+#backupStatus.toolbar-btn {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-split);
+    cursor: help;
+    transition: none;
+}
+
+#backupStatus.toolbar-btn:hover {
+    background: var(--bg-secondary);
+    border-color: var(--border-split);
+    color: var(--text-secondary);
+    transform: none;
+    cursor: help;
+}
+
 /* 备份状态指示器 */
 .backup-status {
     display: flex;
@@ -1195,12 +1211,14 @@ body {
     font-size: 12px;
     color: var(--text-secondary);
     cursor: help;
-    transition: all var(--transition-fast);
+    /* 移除过渡效果，保持静态状态 */
 }
 
 .backup-status:hover {
-    background: var(--bg-hover);
-    border-color: var(--border-color);
+    /* 移除悬停效果，保持原始状态 */
+    background: var(--bg-secondary);
+    border-color: var(--border-split);
+    cursor: help;
 }
 
 .backup-status.active {
@@ -2057,12 +2075,27 @@ a:hover {
     background: transparent;
     border-radius: 30px;
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: 12px;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    /* transition: all var(--transition-fast); */
 }
 .toolbar-btn2:hover {
     /* background: var(--bg-color); */
     /* color: var(--primary-color); */
     /* transform: translateY(-1px); */
+}
+.material-icons2 {
+  font-family: 'Material Icons';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
 }
