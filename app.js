@@ -659,6 +659,22 @@ class FlomoWebApp {
             });
         });
         
+        // 工具栏按钮事件
+        console.log('绑定工具栏按钮事件');
+        const toolbarButtons = document.querySelectorAll('.editor-btn[data-command]');
+        console.log('找到的工具栏按钮数量:', toolbarButtons.length);
+        toolbarButtons.forEach(btn => {
+            console.log('绑定按钮事件:', btn.dataset.command);
+            btn.addEventListener('click', (e) => {
+                console.log('按钮被点击:', btn.dataset.command);
+                const command = btn.dataset.command;
+                document.execCommand(command, false, null);
+                // 移除手动切换active类的操作，让updateToolbarState函数来处理
+                // 延迟执行updateToolbarState，确保命令已经执行
+                setTimeout(() => this.updateToolbarState(), 10);
+            });
+        });
+        
         // 监听选择变化，更新工具栏按钮状态
         const noteInput = document.getElementById('noteInput');
         if (noteInput) {
@@ -1934,8 +1950,13 @@ class FlomoWebApp {
             // 编辑卡片的工具栏
             toolbar = activeEditArea.nextElementSibling;
         } else {
-            // 编辑区的工具栏
-            toolbar = activeEditArea.parentElement.querySelector('.editor-toolbar');
+            // 编辑区的工具栏 - 找到包含noteInput的容器的下一个兄弟元素
+            const noteInputContainer = document.getElementById('noteInput222');
+            if (noteInputContainer) {
+                toolbar = noteInputContainer.nextElementSibling;
+            } else {
+                toolbar = document.querySelector('.editor-toolbar');
+            }
         }
         
         if (!toolbar) return;
@@ -1953,7 +1974,6 @@ class FlomoWebApp {
                     }
                 } catch (error) {
                     // 忽略命令状态检查错误
-                    console.warn('Command state check error:', error);
                 }
             }
         });

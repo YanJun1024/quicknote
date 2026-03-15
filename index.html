@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
@@ -14,6 +15,7 @@
             font-weight: 400;
             src: local('Material Icons'), local('MaterialIcons-Regular');
         }
+
         .material-icons {
             font-family: 'Material Icons';
             font-weight: normal;
@@ -29,21 +31,23 @@
             -webkit-font-feature-settings: 'liga';
             -webkit-font-smoothing: antialiased;
         }
+
         /* 富文本编辑器样式 - 优化版 */
         .editor-container {
             border: 1px solid #e0e0e0;
             border-radius: 4px;
-            overflow: visible; /* 改为 visible 允许工具栏浮动效果 */
+            overflow: visible;
+            /* 改为 visible 允许工具栏浮动效果 */
             background-color: white;
             position: relative;
             transition: box-shadow 0.2s ease;
         }
-        
+
         .editor-container:focus-within {
             border-color: #2196f3;
             box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
         }
-        
+
         .editor-content-wrapper {
             position: relative;
             height: 200px;
@@ -51,27 +55,30 @@
             border-radius: 4px 4px 0 0;
             background-color: white;
         }
-        
+
         .editor-content {
-            height: 100%;
+            height: 152px;
             padding: 12px;
-            padding-bottom: 56px; /* 增加底部内边距，为工具栏留出足够空间 */
+            padding-bottom: 56px;
+            /* 增加底部内边距，为工具栏留出足够空间 */
             overflow-y: auto;
             min-height: 100%;
             max-height: 100%;
             line-height: 1.6;
             font-size: 14px;
             scroll-behavior: smooth;
-            scroll-padding-bottom: 60px; /* 确保滚动时底部有足够空间 */
+            scroll-padding-bottom: 60px;
+            /* 确保滚动时底部有足够空间 */
         }
-        
+
         /* 当内容滚动到底部时的样式 */
         .editor-content.scrolled-bottom {
             scroll-padding-bottom: 70px;
         }
-        
+
         .editor-toolbar {
-            position: sticky; /* 使用 sticky 定位 */
+            position: sticky;
+            /* 使用 sticky 定位 */
             bottom: 0;
             left: 0;
             right: 0;
@@ -82,22 +89,22 @@
             border-top: 1px solid #e0e0e0;
             border-radius: 0 0 4px 4px;
             z-index: 20;
-            box-shadow: 0 -2px 8px rgba(0,0,0,0.03);
+            box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.03);
             transition: all 0.2s ease;
             flex-wrap: wrap;
         }
-        
+
         /* 当编辑器获得焦点时，工具栏样式变化 */
         .editor-container:focus-within .editor-toolbar {
             border-top-color: #2196f3;
             box-shadow: 0 -2px 8px rgba(33, 150, 243, 0.1);
         }
-        
+
         /* 当内容滚动到底部时，工具栏显示更明显的阴影 */
-        .editor-content.is-scrolled-bottom + .editor-toolbar {
-            box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
+        .editor-content.is-scrolled-bottom+.editor-toolbar {
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
         }
-        
+
         .editor-btn {
             padding: 6px 10px;
             border: 1px solid #ddd;
@@ -113,29 +120,29 @@
             transition: all 0.2s ease;
             color: #555;
         }
-        
+
         .editor-btn:hover {
             background-color: #e8f0fe;
             border-color: #2196f3;
             color: #1976d2;
             transform: translateY(-1px);
         }
-        
+
         .editor-btn:active {
             transform: translateY(0);
         }
-        
+
         .editor-btn.active {
             background-color: #e3f2fd;
             border-color: #2196f3;
             color: #1976d2;
             font-weight: 500;
         }
-        
+
         .editor-btn i {
             font-size: 18px;
         }
-        
+
         .attachment-link {
             display: inline-flex;
             align-items: center;
@@ -148,69 +155,71 @@
             color: #333;
             font-size: 14px;
         }
-        
+
         .attachment-link:hover {
             background-color: #e8f0fe;
             border-color: #2196f3;
         }
-        
+
         .attachment-link i {
             margin-right: 4px;
             font-size: 16px;
         }
-        
+
         .editor-content:focus {
             outline: none;
         }
-        
-        .editor-content ul, .editor-content ol {
+
+        .editor-content ul,
+        .editor-content ol {
             margin: 8px 0;
             padding-left: 24px;
         }
-        
+
         .editor-content li {
             margin: 4px 0;
             line-height: 1.6;
         }
-        
-        .note-content ul, .note-content ol {
+
+        .note-content ul,
+        .note-content ol {
             margin: 8px 0;
             padding-left: 24px;
         }
-        
+
         .note-content li {
             margin: 4px 0;
             line-height: 1.6;
         }
-        
+
         /* 深色主题适配 */
         [data-theme="dark"] .editor-container {
             background-color: #1f1f1f;
             border-color: #434343;
         }
-        
+
         [data-theme="dark"] .editor-content {
             background-color: #1f1f1f;
-            color: rgba(255,255,255,0.85);
+            color: rgba(255, 255, 255, 0.85);
         }
-        
+
         [data-theme="dark"] .editor-toolbar {
             background-color: #2a2a2a;
             border-top-color: #434343;
         }
-        
+
         [data-theme="dark"] .editor-btn {
             background-color: #2a2a2a;
             border-color: #434343;
-            color: rgba(255,255,255,0.65);
+            color: rgba(255, 255, 255, 0.65);
         }
-        
+
         [data-theme="dark"] .editor-btn:hover {
             background-color: #3a3a3a;
             border-color: #177ddc;
             color: #177ddc;
         }
-        
+
         [data-theme="dark"] .editor-btn.active {
             background-color: rgba(23, 125, 220, 0.2);
             border-color: #177ddc;
@@ -218,6 +227,7 @@
         }
     </style>
 </head>
+
 <body data-theme="light">
     <!-- 其余 HTML 结构保持不变 -->
     <div class="app-container">
@@ -252,15 +262,22 @@
                     <div class="input-area active" id="writeArea">
                         <div class="editor-container">
                             <div class="editor-content-wrapper">
-                                <div class="editor-content" contenteditable="true" id="noteInput" placeholder="输入你的想法... 使用 #标签/子标签 格式"></div>
+                                <div id="noteInput222">
+                                    <div class="editor-content" contenteditable="true" id="noteInput"
+                                        placeholder="输入你的想法... 使用 #标签/子标签 格式"></div>
+                                </div>
                                 <div class="editor-toolbar">
                                     <button class="editor-btn" onclick="flomoApp.insertHashtag();">#</button>
                                     <button class="editor-btn" onclick="flomoApp.insertSlash();">/</button>
-                                    <button class="editor-btn" data-command="bold" onclick="document.execCommand('bold', false, null); flomoApp.updateToolbarState();"><b>B</b></button>
-                                    <button class="editor-btn" data-command="underline" onclick="document.execCommand('underline', false, null); flomoApp.updateToolbarState();"><u>U</u></button>
-                                    <button class="editor-btn" data-command="insertOrderedList" onclick="document.execCommand('insertOrderedList', false, null); flomoApp.updateToolbarState();"><i class="material-icons">format_list_numbered</i></button>
-                                    <button class="editor-btn" onclick="flomoApp.insertLink();"><i class="material-icons">link</i></button>
-                                    <button class="editor-btn" onclick="document.getElementById('attachmentUpload').click();"><i class="material-icons">attach_file</i></button>
+                                    <button class="editor-btn" data-command="bold"><b>B</b></button>
+                                    <button class="editor-btn" data-command="underline"><u>U</u></button>
+                                    <button class="editor-btn" data-command="insertOrderedList"><i
+                                            class="material-icons">format_list_numbered</i></button>
+                                    <button class="editor-btn" onclick="flomoApp.insertLink();"><i
+                                            class="material-icons">link</i></button>
+                                    <button class="editor-btn"
+                                        onclick="document.getElementById('attachmentUpload').click();"><i
+                                            class="material-icons">attach_file</i></button>
                                     <input type="file" id="attachmentUpload" accept="*" style="display: none;">
                                 </div>
                             </div>
@@ -275,7 +292,8 @@
 
                     <div class="input-area" id="searchArea">
                         <div class="search-box">
-                            <input type="text" id="searchInput" placeholder="搜索笔记内容或标签... 使用 @2024-01-01 进行时间过滤" autocomplete="off">
+                            <input type="text" id="searchInput" placeholder="搜索笔记内容或标签... 使用 @2024-01-01 进行时间过滤"
+                                autocomplete="off">
                             <div class="search-tags-hint" id="searchTagsHint"></div>
                         </div>
                         <button id="clearSearchBtn" class="btn btn-secondary">
@@ -316,7 +334,8 @@
                     <div class="empty-state">
                         <i class="material-icons">note_add</i>
                         <p>暂无笔记。切换到"编辑"模式开始记录吧！</p>
-                        <button class="btn btn-primary" onclick="document.querySelector('[data-mode=write]').click();document.getElementById('noteInput').focus()">
+                        <button class="btn btn-primary"
+                            onclick="document.querySelector('[data-mode=write]').click();document.getElementById('noteInput').focus()">
                             <i class="material-icons">edit</i> 写笔记
                         </button>
                     </div>
@@ -333,16 +352,16 @@
                         <span class="backup-status-text">本地储存数据</span>
                     </div>
                 </div>
-                
+
                 <div class="toolbar-center">
                     <div class="action-buttons">
                         <button id="manualBackupBtn" class="toolbar-btn" title="手动触发备份 (立即下载备份文件)">
                             <i class="material-icons">backup</i>
                             <span class="btn-label">手动备份</span>
                         </button>
-                        
+
                         <div class="separator"></div>
-                        
+
                         <button id="importBtn" class="toolbar-btn" title="导入数据 (Ctrl+I)">
                             <i class="material-icons">upload_file</i>
                             <span class="btn-label">导入</span>
@@ -355,9 +374,9 @@
                             <i class="material-icons">delete_forever</i>
                             <span class="btn-label">清空</span>
                         </button>
-                        
+
                         <div class="separator"></div>
-                        
+
                         <a href="#" id="toggleTheme" class="toolbar-link" title="切换主题">
                             <i class="material-icons">dark_mode</i>
                             <span class="link-label">主题</span>
@@ -373,7 +392,7 @@
                     <span class="version-badge">v1.2 可备份</span>
                 </div>
             </div>
-            
+
             <input type="file" id="importFile" accept=".json" style="display: none;">
         </footer>
     </div>
@@ -404,4 +423,5 @@
 
     <script src="app.js"></script>
 </body>
+
 </html>
