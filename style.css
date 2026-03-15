@@ -1195,12 +1195,12 @@ body {
     font-size: 12px;
     color: var(--text-secondary);
     cursor: help;
-    transition: all var(--transition-fast);
+    /* transition: all var(--transition-fast); */
 }
 
 .backup-status:hover {
-    background: var(--bg-hover);
-    border-color: var(--border-color);
+    background: var(--bg-secondary);
+    border-color: var(--border-split);
 }
 
 .backup-status.active {
@@ -1209,7 +1209,19 @@ body {
     border-color: var(--success-color);
 }
 
+.backup-status.active:hover {
+    background: var(--success-light);
+    color: var(--success-color);
+    border-color: var(--success-color);
+}
+
 .backup-status.inactive {
+    background: var(--error-light);
+    color: var(--error-color);
+    border-color: var(--error-color);
+}
+
+.backup-status.inactive:hover {
     background: var(--error-light);
     color: var(--error-color);
     border-color: var(--error-color);
@@ -2057,12 +2069,16 @@ a:hover {
     background: transparent;
     border-radius: 30px;
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: var(--font-size-sm);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    /* transition: all var(--transition-fast); */
 }
 .toolbar-btn2:hover {
-    /* background: var(--bg-color); */
+    background: transparent;
     /* color: var(--primary-color); */
     /* transform: translateY(-1px); */
+}
+
+.toolbar-btn2 .material-icons {
+    font-size: var(--font-size-base);
 }
