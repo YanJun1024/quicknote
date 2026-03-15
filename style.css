@@ -362,8 +362,16 @@ body {
     box-shadow: 0 0 0 2px var(--primary-light);
 }
 
-#noteInput::placeholder {
+/* 为contenteditable元素添加placeholder效果 */
+.editor-content:empty:before {
+    content: attr(placeholder);
     color: var(--text-tertiary);
+    pointer-events: none;
+    display: block;
+}
+
+.editor-content:focus:empty:before {
+    content: none;
 }
 
 /* 输入底部 */
