@@ -2048,3 +2048,21 @@ a:hover {
     width: 100%;
     height: 152px;
 }
+.toolbar-btn2 {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 30px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+.toolbar-btn2:hover {
+    /* background: var(--bg-color); */
+    /* color: var(--primary-color); */
+    /* transform: translateY(-1px); */
+}

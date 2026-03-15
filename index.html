@@ -347,7 +347,7 @@
         <footer class="app-footer">
             <div class="footer-toolbar">
                 <div class="toolbar-left">
-                    <div id="backupStatus" class="toolbar-btn active" title="点击查看备份详情">
+                    <div id="backupStatus" class="toolbar-btn" title="">
                         <i class="material-icons">storage</i>
                         <span class="backup-status-text">本地储存数据</span>
                     </div>
@@ -355,10 +355,10 @@
 
                 <div class="toolbar-center">
                     <div class="action-buttons">
-                        <button id="manualBackupBtn" class="toolbar-btn" title="手动触发备份 (立即下载备份文件)">
+                        <!-- <button id="manualBackupBtn" class="toolbar-btn" title="手动触发备份 (立即下载备份文件)">
                             <i class="material-icons">backup</i>
                             <span class="btn-label">手动备份</span>
-                        </button>
+                        </button> -->
 
                         <div class="separator"></div>
 
@@ -381,9 +381,9 @@
                             <i class="material-icons">dark_mode</i>
                             <span class="link-label">主题</span>
                         </a>
-                        <a href="#" id="shortcutHelp" class="toolbar-link" title="快捷键">
-                            <i class="material-icons">keyboard</i>
-                            <span class="link-label">快捷键</span>
+                        <a href="#" id="shortcutHelp" class="toolbar-link" title="使用说明">
+                            <i class="material-icons">info</i>
+                            <span class="link-label">使用说明</span>
                         </a>
                     </div>
                 </div>
@@ -399,7 +399,24 @@
 
     <div id="shortcutModal" class="modal">
         <div class="modal-content">
-            <h3><i class="material-icons">keyboard</i> 快捷键参考</h3>
+            <h3><i class="material-icons">info</i> 使用说明</h3>
+            
+            <h4>📝 基本操作</h4>
+            <ul>
+                <li><strong>创建笔记</strong>: 编辑内容，点击或快捷键保存 <kbd>Ctrl</kbd> + <kbd>Enter</kbd> 保存</li>
+                <li><strong>编辑笔记</strong>: 双击笔记卡片进入编辑模式，修改后点击保存</li>
+                <li><strong>删除笔记</strong>: 点击笔记卡片上的删除按钮</li>
+                <li><strong>搜索笔记</strong>: 切换到搜索模式，输入关键词或标签进行搜索</li>
+            </ul>
+            
+            <h4>🏷️ 标签使用</h4>
+            <ul>
+                <li><strong>添加标签</strong>: 在编辑区输入 <code>#标签名</code> 格式的标签</li>
+                <li><strong>子标签</strong>: 使用 <code>#父标签/子标签</code> 格式创建层级标签</li>
+                <li><strong>快速搜索</strong>: 点击标签云或笔记中的标签快速搜索相关笔记</li>
+            </ul>
+            
+            <h4>⚡ 快捷键</h4>
             <ul>
                 <li><kbd>Ctrl</kbd> + <kbd>Enter</kbd> (或 <kbd>Cmd</kbd> + <kbd>Enter</kbd>) - 保存笔记</li>
                 <li><kbd>Ctrl</kbd> + <kbd>E</kbd> (或 <kbd>Cmd</kbd> + <kbd>E</kbd>) - 导出数据</li>
@@ -407,16 +424,25 @@
                 <li><kbd>Esc</kbd> - 取消编辑 / 清除搜索 / 关闭弹窗</li>
                 <li><kbd>/</kbd> - 快速聚焦到搜索框</li>
                 <li><kbd>双击</kbd>笔记卡片 - 进入编辑模式</li>
-                <li><kbd>点击标签</kbd> - 快速搜索该标签</li>
             </ul>
-            <h4>📁 自动备份功能说明</h4>
+            
+            <h4>📁 数据管理</h4>
             <ul>
-                <li><strong>静默备份</strong>: 每天首次保存时会提示，后续保存静默自动备份</li>
-                <li><strong>文件格式</strong>: flomo-auto-backup-YYYY-MM-DD_HH-MM-SS.json</li>
-                <li><strong>保存位置</strong>: 浏览器的默认下载文件夹</li>
-                <li><strong>备份限制</strong>: 每天最多10次，每5分钟最多1次</li>
-                <li><strong>数据保护</strong>: 清理浏览器前，请确保已保存备份文件</li>
+                <!-- <li><strong>自动备份</strong>: 每天首次保存时会自动备份数据到浏览器下载文件夹</li> -->
+                <li><strong>手动备份</strong>: 点击底部工具栏的 "手动备份" 按钮立即下载备份文件</li>
+                <li><strong>导入数据</strong>: 点击 "导入" 按钮选择备份文件恢复数据</li>
+                <li><strong>导出数据</strong>: 点击 "导出" 按钮下载当前所有数据</li>
+                <li><strong>数据格式</strong>: 备份文件为 JSON 格式，包含所有笔记和标签</li>
             </ul>
+            
+            <h4>🎨 其他功能</h4>
+            <ul>
+                <li><strong>主题切换</strong>: 点击底部工具栏的 "主题" 按钮切换浅色/深色模式</li>
+                <li><strong>头像设置</strong>: 点击顶部用户头像上传或更换头像</li>
+                <li><strong>附件添加</strong>: 点击编辑区工具栏的附件按钮添加文件</li>
+                <li><strong>链接插入</strong>: 点击编辑区工具栏的链接按钮插入超链接</li>
+            </ul>
+            
             <button class="btn btn-primary" id="closeShortcutModal">关闭</button>
         </div>
     </div>
