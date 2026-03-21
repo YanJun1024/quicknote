@@ -1,4 +1,4 @@
-// Flomo Lite - 网页版应用逻辑 (离线优先架构)
+﻿// Flomo Lite - 网页版应用逻辑 (离线优先架构)
 class FlomoWebApp {
     constructor() {
         this.notes = [];
@@ -920,6 +920,10 @@ class FlomoWebApp {
         else if (target.classList.contains('delete-btn') || target.closest('.delete-btn')) {
             e.stopPropagation();
             this.deleteNote(noteId);
+        }
+        else if (target.classList.contains('expand-btn') || target.closest('.expand-btn')) {
+            e.stopPropagation();
+            this.expandNote(noteId);
         } 
         else if (target.classList.contains('edit-btn') || target.closest('.edit-btn')) {
             e.stopPropagation();
@@ -1445,6 +1449,10 @@ class FlomoWebApp {
                             <button class="btn-icon delete-btn" data-note-id="${note.id}" title="删除">
                                 <i class="material-icons">delete</i>
                             </button>
+                            <button class="btn-icon expand-btn" data-note-id="${note.id}" title="放大查看">
+                                <i class="material-icons">zoom_out_map</i>
+                            </button>
+                        
                         </div>
                     </div>
                 </div>
@@ -1716,6 +1724,92 @@ class FlomoWebApp {
     cancelEdit() {
         this.editingNoteId = null;
         this.render();
+    }
+
+    expandNote(noteId) {
+        const note = this.notes.find(n => n.id === noteId);
+        if (!note) return;
+
+        // 创建放大查看的模态框
+        const modal = document.createElement('div');
+        modal.className = 'note-expand-modal';
+        modal.innerHTML = `
+            <div class="note-expand-content">
+                <div class="note-expand-header">
+                    <h3><i class="material-icons">fullscreen</i> 笔记详情</h3>
+                    <button class="btn-icon close-expand-btn" title="关闭">
+                        <i class="material-icons">close</i>
+                    </button>
+                </div>
+                <div class="note-expand-body">
+                    <div class="note-expand-text">${note.content}</div>
+                    <div class="note-expand-tags">
+                        ${note.tags.map(tag => `
+                            <span class="tag ${tag.includes('/') ? 'tag-nested' : ''}" data-tag="${tag}">
+                                #${tag}
+                            </span>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="note-expand-footer">
+                    <span class="note-expand-time">
+                        <i class="material-icons">schedule</i>
+                        ${new Date(note.timestamp).toLocaleString()}
+                    </span>
+                    <div class="note-expand-actions">
+                        <button class="btn btn-secondary close-expand-btn">
+                            <i class="material-icons">close</i> 关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // 绑定关闭事件
+        modal.querySelectorAll('.close-expand-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.closeExpandModal(modal));
+        });
+
+        // 点击模态框背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeExpandModal(modal);
+            }
+        });
+
+        // 标签点击事件
+        modal.querySelectorAll('.tag').forEach(tag => {
+            tag.addEventListener('click', (e) => {
+                const tagName = e.target.dataset.tag;
+                if (tagName) {
+                    this.closeExpandModal(modal);
+                    this.searchByTag(tagName);
+                }
+            });
+        });
+
+        // ESC键关闭
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                this.closeExpandModal(modal);
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+
+        // 显示动画
+        requestAnimationFrame(() => {
+            modal.classList.add('active');
+        });
+    }
+
+    closeExpandModal(modal) {
+        modal.classList.remove('active');
+        setTimeout(() => {
+            modal.remove();
+        }, 300);
     }
 
     exportNotes() {
