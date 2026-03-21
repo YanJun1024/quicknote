@@ -1,4 +1,4 @@
-﻿// Flomo Lite - 网页版应用逻辑 (离线优先架构)
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// Flomo Lite - 网页版应用逻辑 (离线优先架构)
 class FlomoWebApp {
     constructor() {
         this.notes = [];
@@ -1814,14 +1814,23 @@ class FlomoWebApp {
 
     exportNotes() {
         try {
+            let notesToExport = this.notes;
+            let exportFileName = 'flomo-lite-backup';
+            
+            if (this.isSearchMode && this.currentSearch) {
+                notesToExport = this.filterNotes();
+                exportFileName = `flomo-lite-search-${this.currentSearch.replace('/', '-')}`;
+            }
+            
             const exportData = {
                 version: '1.0',
                 exportDate: new Date().toISOString(),
-                noteCount: this.notes.length,
+                noteCount: notesToExport.length,
                 tagCount: this.tags.size,
-                notes: this.notes,
+                notes: notesToExport,
                 tags: Array.from(this.tags),
-                source: 'Flomo Lite Web App'
+                source: 'Flomo Lite Web App',
+                ...(this.isSearchMode && this.currentSearch && { searchQuery: this.currentSearch })
             };
             
             const jsonString = JSON.stringify(exportData, null, 2);
@@ -1831,14 +1840,14 @@ class FlomoWebApp {
             a.href = url;
             
             const dateStr = new Date().toISOString().split('T')[0];
-            a.download = `flomo-lite-backup-${dateStr}.json`;
+            a.download = `${exportFileName}-${dateStr}.json`;
             
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             
-            this.showToast(`导出成功！共导出 ${this.notes.length} 条笔记`, 'success');
+            this.showToast(`导出成功！共导出 ${notesToExport.length} 条笔记`, 'success');
             
         } catch (error) {
             console.error('导出失败:', error);
@@ -1959,8 +1968,23 @@ class FlomoWebApp {
         
         const filterIndicator = document.getElementById('filterIndicator');
         if (this.isSearchMode && this.currentSearch) {
-            filterIndicator.textContent = `（筛选: ${this.currentSearch}）`;
+            filterIndicator.innerHTML = `（筛选: ${this.currentSearch}） <span id="exportSearchBtn" style="margin-left: 10px; cursor: pointer; color: var(--primary-color); display: inline-flex; align-items: center; gap: 2px; padding: 2px 6px; border-radius: var(--border-radius-sm); transition: background-color var(--transition-fast);" title="导出搜索结果"><i class="material-icons" style="font-size: 14px;">download</i> 导出</span>`;
             filterIndicator.style.display = 'inline';
+            
+            // 添加导出按钮点击事件
+            document.getElementById('exportSearchBtn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.exportNotes();
+            });
+            
+            // 添加悬停效果
+            document.getElementById('exportSearchBtn').addEventListener('mouseenter', function() {
+                this.style.backgroundColor = 'var(--primary-light)';
+            });
+            
+            document.getElementById('exportSearchBtn').addEventListener('mouseleave', function() {
+                this.style.backgroundColor = 'transparent';
+            });
         } else {
             filterIndicator.style.display = 'none';
         }
