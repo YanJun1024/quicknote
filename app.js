@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// Flomo Lite - 网页版应用逻辑 (离线优先架构)
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// Flomo Lite - 网页版应用逻辑 (离线优先架构)
 class FlomoWebApp {
     constructor() {
         this.notes = [];
@@ -944,6 +944,7 @@ class FlomoWebApp {
                 this.searchByTag(tag);
             }
         } 
+
         else if (target.classList.contains('delete-btn') || target.closest('.delete-btn')) {
             e.stopPropagation();
             this.deleteNote(noteId);
@@ -1267,7 +1268,10 @@ class FlomoWebApp {
         try {
             const note = await this.apiRequest('/notes', {
                 method: 'POST',
-                body: JSON.stringify({ content, tags })
+                body: JSON.stringify({ 
+                    content, 
+                    tags
+                })
             });
             
             this.notes.unshift(note);
@@ -1458,7 +1462,9 @@ class FlomoWebApp {
             }
             return `
                 <div class="note-card" data-note-id="${note.id}">
-                    <div class="note-content">${this.highlightSearch(note.content)}</div>
+                    <div class="note-content">
+                        ${this.highlightSearch(note.content)}
+                    </div>
                     <div class="note-footer">
                         <div class="note-tags">
                             ${note.tags.map(tag => `
@@ -1479,7 +1485,6 @@ class FlomoWebApp {
                             <button class="btn-icon expand-btn" data-note-id="${note.id}" title="放大查看">
                                 <i class="material-icons">zoom_out_map</i>
                             </button>
-                        
                         </div>
                     </div>
                 </div>
@@ -1730,7 +1735,10 @@ class FlomoWebApp {
             try {
                 const updatedNote = await this.apiRequest(`/notes/${noteId}`, {
                     method: 'PUT',
-                    body: JSON.stringify({ content, tags })
+                    body: JSON.stringify({ 
+                        content, 
+                        tags
+                    })
                 });
                 
                 this.notes[noteIndex] = updatedNote;
