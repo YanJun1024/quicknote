@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// Flomo Lite - 网页版应用逻辑 (离线优先架构)
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// Flomo Lite - 网页版应用逻辑 (离线优先架构)
 class FlomoWebApp {
     constructor() {
         this.notes = [];
@@ -165,62 +165,89 @@ class FlomoWebApp {
         reader.readAsDataURL(file);
     }
     
-    handleAttachmentUpload(file) {
-        if (!file) return;
-        
-        // 检查文件大小，限制为5MB
-        if (file.size > 5 * 1024 * 1024) {
-            this.showToast('文件大小不能超过5MB', 'error');
-            return;
+    handleAttachmentUpload(files) {
+        // 确保 files 是一个数组
+        let fileList = [];
+        if (Array.isArray(files)) {
+            fileList = files;
+        } else if (files.target && files.target.files) {
+            // 将 FileList 转换为数组
+            fileList = Array.from(files.target.files);
+        } else {
+            fileList = [files];
         }
         
-        const reader = new FileReader();
+        if (!fileList || fileList.length === 0) return;
         
-        reader.onload = (e) => {
-            const base64Data = e.target.result;
-            const fileName = file.name;
-            const fileType = file.type;
-            
-            // 在编辑区插入附件链接
-            const input = document.getElementById('noteInput');
-            if (input) {
-                // 创建附件链接元素
-                const attachmentLink = document.createElement('a');
-                attachmentLink.href = base64Data;
-                attachmentLink.download = fileName;
-                attachmentLink.className = 'attachment-link';
-                attachmentLink.innerHTML = `<i class="material-icons">attach_file</i> ${fileName}`;
-                
-                // 插入到编辑区
-                const selection = window.getSelection();
-                if (selection.rangeCount > 0) {
-                    const range = selection.getRangeAt(0);
-                    range.deleteContents();
-                    range.insertNode(attachmentLink);
-                    // 在链接后插入一个空格
-                    const space = document.createTextNode(' ');
-                    range.insertNode(space);
-                    range.setStartAfter(space);
-                    range.collapse(true);
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                } else {
-                    input.appendChild(attachmentLink);
-                    input.appendChild(document.createTextNode(' '));
-                }
-                
-                this.showToast('附件已添加', 'success');
-                
-                // 确保光标可见
-                setTimeout(() => this.ensureCursorVisible(), 50);
+        let successCount = 0;
+        let errorCount = 0;
+        
+        fileList.forEach(file => {
+            // 检查文件大小，限制为80MB
+            if (file.size > 80 * 1024 * 1024) {
+                this.showToast(`文件 ${file.name} 大小不能超过80MB`, 'error');
+                errorCount++;
+                return;
             }
-        };
+            
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                const base64Data = e.target.result;
+                const fileName = file.name;
+                
+                // 在编辑区插入附件链接
+                const input = document.getElementById('noteInput');
+                if (input) {
+                    // 创建附件链接元素
+                    const attachmentLink = document.createElement('a');
+                    attachmentLink.href = base64Data;
+                    attachmentLink.download = fileName;
+                    attachmentLink.className = 'attachment-link';
+                    attachmentLink.innerHTML = `<i class="material-icons">attach_file</i> ${fileName}`;
+                    
+                    // 插入到编辑区
+                    const selection = window.getSelection();
+                    if (selection.rangeCount > 0) {
+                        const range = selection.getRangeAt(0);
+                        range.deleteContents();
+                        range.insertNode(attachmentLink);
+                        // 在链接后插入一个空格
+                        const space = document.createTextNode(' ');
+                        range.insertNode(space);
+                        range.setStartAfter(space);
+                        range.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    } else {
+                        input.appendChild(attachmentLink);
+                        input.appendChild(document.createTextNode(' '));
+                    }
+                    
+                    successCount++;
+                    
+                    // 确保光标可见
+                    setTimeout(() => this.ensureCursorVisible(), 50);
+                }
+            };
+            
+            reader.onerror = () => {
+                this.showToast(`文件 ${file.name} 上传失败`, 'error');
+                errorCount++;
+            };
+            
+            reader.readAsDataURL(file);
+        });
         
-        reader.onerror = () => {
-            this.showToast('附件上传失败', 'error');
-        };
-        
-        reader.readAsDataURL(file);
+        // 显示总体上传结果
+        setTimeout(() => {
+            if (successCount > 0) {
+                this.showToast(`成功添加 ${successCount} 个附件`, 'success');
+            }
+            if (errorCount > 0) {
+                this.showToast(`有 ${errorCount} 个附件上传失败`, 'error');
+            }
+        }, 100);
     }
     
     insertHashtag() {
@@ -891,9 +918,9 @@ class FlomoWebApp {
         const attachmentUpload = document.getElementById('attachmentUpload');
         if (attachmentUpload) {
             attachmentUpload.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    this.handleAttachmentUpload(file);
+                const files = e.target.files;
+                if (files && files.length > 0) {
+                    this.handleAttachmentUpload(e);
                 }
                 attachmentUpload.value = '';
             });
