@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// Flomo Lite - 网页版应用逻辑 (离线优先架构)
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// Flomo Lite - 网页版应用逻辑 (离线优先架构)
 class FlomoWebApp {
     constructor() {
         this.notes = [];
@@ -1741,7 +1741,7 @@ class FlomoWebApp {
                 
                 const updatedNote = await this.apiRequest(`/notes/${noteId}`, {
                     method: 'PUT',
-                    body: JSON.stringify({ content, tags })
+                    body: JSON.stringify({ content, tags, timestamp: originalTimestamp })
                 });
                 
                 // 确保使用原始时间戳
