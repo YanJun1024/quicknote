@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// Flomo Lite - 网页版应用逻辑 (离线优先架构)
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// Flomo Lite - 网页版应用逻辑 (离线优先架构)
 class FlomoWebApp {
     constructor() {
         this.notes = [];
@@ -1730,17 +1730,22 @@ class FlomoWebApp {
                 return;
             }
             
+            // 保存编辑历史
+            this.saveEditHistory(noteId, oldContent, this.notes[noteIndex].timestamp);
+            
             const tags = this.extractTags(content);
             
             try {
+                // 保留原始时间戳
+                const originalTimestamp = this.notes[noteIndex].timestamp;
+                
                 const updatedNote = await this.apiRequest(`/notes/${noteId}`, {
                     method: 'PUT',
-                    body: JSON.stringify({ 
-                        content, 
-                        tags
-                    })
+                    body: JSON.stringify({ content, tags })
                 });
                 
+                // 确保使用原始时间戳
+                updatedNote.timestamp = originalTimestamp;
                 this.notes[noteIndex] = updatedNote;
                 this.updateTagsFromNotes();
                 
@@ -1753,6 +1758,41 @@ class FlomoWebApp {
                 console.error('更新笔记失败:', error);
                 this.showToast('更新失败，请重试', 'error');
             }
+        }
+    }
+    
+    // 保存编辑历史
+    saveEditHistory(noteId, content, timestamp) {
+        try {
+            const historyKey = `edit_history_${noteId}`;
+            const existingHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
+            
+            // 添加新的历史记录到数组开头，确保最新的记录在前面
+            existingHistory.unshift({
+                content: content,
+                timestamp: timestamp,
+                editedAt: new Date().toISOString()
+            });
+            
+            // 限制历史记录数量，最多保存10条
+            if (existingHistory.length > 10) {
+                existingHistory.pop();
+            }
+            
+            localStorage.setItem(historyKey, JSON.stringify(existingHistory));
+        } catch (error) {
+            console.error('保存编辑历史失败:', error);
+        }
+    }
+    
+    // 获取编辑历史
+    getEditHistory(noteId) {
+        try {
+            const historyKey = `edit_history_${noteId}`;
+            return JSON.parse(localStorage.getItem(historyKey) || '[]');
+        } catch (error) {
+            console.error('获取编辑历史失败:', error);
+            return [];
         }
     }
 
@@ -1792,6 +1832,9 @@ class FlomoWebApp {
                         ${new Date(note.timestamp).toLocaleString()}
                     </span>
                     <div class="note-expand-actions">
+                        <button class="btn btn-secondary view-history-btn" data-note-id="${note.id}">
+                            <i class="material-icons">history</i> 编辑历史
+                        </button>
                         <button class="btn btn-secondary close-expand-btn">
                             <i class="material-icons">close</i> 关闭
                         </button>
@@ -1824,6 +1867,13 @@ class FlomoWebApp {
                 }
             });
         });
+        
+        // 编辑历史按钮事件
+        modal.querySelector('.view-history-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const noteId = parseInt(e.target.closest('.view-history-btn').dataset.noteId);
+            this.showEditHistory(noteId);
+        });
 
         // ESC键关闭
         const handleEsc = (e) => {
@@ -1845,6 +1895,82 @@ class FlomoWebApp {
         setTimeout(() => {
             modal.remove();
         }, 300);
+    }
+    
+    // 显示编辑历史
+    showEditHistory(noteId) {
+        const history = this.getEditHistory(noteId);
+        
+        // 创建编辑历史模态框
+        const modal = document.createElement('div');
+        modal.className = 'note-expand-modal';
+        modal.innerHTML = `
+            <div class="note-expand-content">
+                <div class="note-expand-header">
+                    <h3><i class="material-icons">history</i> 编辑历史</h3>
+                    <button class="btn-icon close-history-btn" title="关闭">
+                        <i class="material-icons">close</i>
+                    </button>
+                </div>
+                <div class="note-expand-body">
+                    ${history.length > 0 ? `
+                        <div class="history-list">
+                            ${history.map((item, index) => `
+                                <div class="history-item" data-index="${index}">
+                                    <div class="history-header">
+                                        <span class="history-index">版本 ${index + 1}</span>
+                                        <span class="history-time">
+                                            编辑时间: ${new Date(item.editedAt).toLocaleString()}
+                                        </span>
+                                    </div>
+                                    <div class="history-content">${item.content}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : `
+                        <div class="empty-history">
+                            <i class="material-icons">history_off</i>
+                            <p>暂无编辑历史记录</p>
+                        </div>
+                    `}
+                </div>
+                <div class="note-expand-footer">
+                    <div class="note-expand-actions">
+                        <button class="btn btn-secondary close-history-btn">
+                            <i class="material-icons">close</i> 关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // 绑定关闭事件
+        modal.querySelectorAll('.close-history-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.closeExpandModal(modal));
+        });
+        
+        // 点击模态框背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeExpandModal(modal);
+            }
+        });
+        
+        // ESC键关闭
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                this.closeExpandModal(modal);
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        // 显示动画
+        requestAnimationFrame(() => {
+            modal.classList.add('active');
+        });
     }
 
     exportNotes() {
