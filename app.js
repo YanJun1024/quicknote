@@ -1,4 +1,4 @@
-// Flomo Lite - 网页版应用逻辑 (离线优先架构)
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿// Flomo Lite - 网页版应用逻辑 (离线优先架构)
 class FlomoWebApp {
     constructor() {
         this.notes = [];
@@ -165,62 +165,89 @@ class FlomoWebApp {
         reader.readAsDataURL(file);
     }
     
-    handleAttachmentUpload(file) {
-        if (!file) return;
-        
-        // 检查文件大小，限制为5MB
-        if (file.size > 5 * 1024 * 1024) {
-            this.showToast('文件大小不能超过5MB', 'error');
-            return;
+    handleAttachmentUpload(files) {
+        // 确保 files 是一个数组
+        let fileList = [];
+        if (Array.isArray(files)) {
+            fileList = files;
+        } else if (files.target && files.target.files) {
+            // 将 FileList 转换为数组
+            fileList = Array.from(files.target.files);
+        } else {
+            fileList = [files];
         }
         
-        const reader = new FileReader();
+        if (!fileList || fileList.length === 0) return;
         
-        reader.onload = (e) => {
-            const base64Data = e.target.result;
-            const fileName = file.name;
-            const fileType = file.type;
-            
-            // 在编辑区插入附件链接
-            const input = document.getElementById('noteInput');
-            if (input) {
-                // 创建附件链接元素
-                const attachmentLink = document.createElement('a');
-                attachmentLink.href = base64Data;
-                attachmentLink.download = fileName;
-                attachmentLink.className = 'attachment-link';
-                attachmentLink.innerHTML = `<i class="material-icons">attach_file</i> ${fileName}`;
-                
-                // 插入到编辑区
-                const selection = window.getSelection();
-                if (selection.rangeCount > 0) {
-                    const range = selection.getRangeAt(0);
-                    range.deleteContents();
-                    range.insertNode(attachmentLink);
-                    // 在链接后插入一个空格
-                    const space = document.createTextNode(' ');
-                    range.insertNode(space);
-                    range.setStartAfter(space);
-                    range.collapse(true);
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                } else {
-                    input.appendChild(attachmentLink);
-                    input.appendChild(document.createTextNode(' '));
-                }
-                
-                this.showToast('附件已添加', 'success');
-                
-                // 确保光标可见
-                setTimeout(() => this.ensureCursorVisible(), 50);
+        let successCount = 0;
+        let errorCount = 0;
+        
+        fileList.forEach(file => {
+            // 检查文件大小，限制为80MB
+            if (file.size > 80 * 1024 * 1024) {
+                this.showToast(`文件 ${file.name} 大小不能超过80MB`, 'error');
+                errorCount++;
+                return;
             }
-        };
+            
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                const base64Data = e.target.result;
+                const fileName = file.name;
+                
+                // 在编辑区插入附件链接
+                const input = document.getElementById('noteInput');
+                if (input) {
+                    // 创建附件链接元素
+                    const attachmentLink = document.createElement('a');
+                    attachmentLink.href = base64Data;
+                    attachmentLink.download = fileName;
+                    attachmentLink.className = 'attachment-link';
+                    attachmentLink.innerHTML = `<i class="material-icons">attach_file</i> ${fileName}`;
+                    
+                    // 插入到编辑区
+                    const selection = window.getSelection();
+                    if (selection.rangeCount > 0) {
+                        const range = selection.getRangeAt(0);
+                        range.deleteContents();
+                        range.insertNode(attachmentLink);
+                        // 在链接后插入一个空格
+                        const space = document.createTextNode(' ');
+                        range.insertNode(space);
+                        range.setStartAfter(space);
+                        range.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    } else {
+                        input.appendChild(attachmentLink);
+                        input.appendChild(document.createTextNode(' '));
+                    }
+                    
+                    successCount++;
+                    
+                    // 确保光标可见
+                    setTimeout(() => this.ensureCursorVisible(), 50);
+                }
+            };
+            
+            reader.onerror = () => {
+                this.showToast(`文件 ${file.name} 上传失败`, 'error');
+                errorCount++;
+            };
+            
+            reader.readAsDataURL(file);
+        });
         
-        reader.onerror = () => {
-            this.showToast('附件上传失败', 'error');
-        };
-        
-        reader.readAsDataURL(file);
+        // 显示总体上传结果
+        setTimeout(() => {
+            if (successCount > 0) {
+                this.showToast(`成功添加 ${successCount} 个附件`, 'success');
+            }
+            if (errorCount > 0) {
+                this.showToast(`有 ${errorCount} 个附件上传失败`, 'error');
+            }
+        }, 100);
     }
     
     insertHashtag() {
@@ -891,9 +918,9 @@ class FlomoWebApp {
         const attachmentUpload = document.getElementById('attachmentUpload');
         if (attachmentUpload) {
             attachmentUpload.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    this.handleAttachmentUpload(file);
+                const files = e.target.files;
+                if (files && files.length > 0) {
+                    this.handleAttachmentUpload(e);
                 }
                 attachmentUpload.value = '';
             });
@@ -917,9 +944,14 @@ class FlomoWebApp {
                 this.searchByTag(tag);
             }
         } 
+
         else if (target.classList.contains('delete-btn') || target.closest('.delete-btn')) {
             e.stopPropagation();
             this.deleteNote(noteId);
+        }
+        else if (target.classList.contains('expand-btn') || target.closest('.expand-btn')) {
+            e.stopPropagation();
+            this.expandNote(noteId);
         } 
         else if (target.classList.contains('edit-btn') || target.closest('.edit-btn')) {
             e.stopPropagation();
@@ -1236,7 +1268,10 @@ class FlomoWebApp {
         try {
             const note = await this.apiRequest('/notes', {
                 method: 'POST',
-                body: JSON.stringify({ content, tags })
+                body: JSON.stringify({ 
+                    content, 
+                    tags
+                })
             });
             
             this.notes.unshift(note);
@@ -1427,7 +1462,9 @@ class FlomoWebApp {
             }
             return `
                 <div class="note-card" data-note-id="${note.id}">
-                    <div class="note-content">${this.highlightSearch(note.content)}</div>
+                    <div class="note-content">
+                        ${this.highlightSearch(note.content)}
+                    </div>
                     <div class="note-footer">
                         <div class="note-tags">
                             ${note.tags.map(tag => `
@@ -1444,6 +1481,9 @@ class FlomoWebApp {
                             </button>
                             <button class="btn-icon delete-btn" data-note-id="${note.id}" title="删除">
                                 <i class="material-icons">delete</i>
+                            </button>
+                            <button class="btn-icon expand-btn" data-note-id="${note.id}" title="放大查看">
+                                <i class="material-icons">zoom_out_map</i>
                             </button>
                         </div>
                     </div>
@@ -1690,14 +1730,22 @@ class FlomoWebApp {
                 return;
             }
             
+            // 保存编辑历史
+            this.saveEditHistory(noteId, oldContent, this.notes[noteIndex].timestamp);
+            
             const tags = this.extractTags(content);
             
             try {
+                // 保留原始时间戳
+                const originalTimestamp = this.notes[noteIndex].timestamp;
+                
                 const updatedNote = await this.apiRequest(`/notes/${noteId}`, {
                     method: 'PUT',
-                    body: JSON.stringify({ content, tags })
+                    body: JSON.stringify({ content, tags, timestamp: originalTimestamp })
                 });
                 
+                // 确保使用原始时间戳
+                updatedNote.timestamp = originalTimestamp;
                 this.notes[noteIndex] = updatedNote;
                 this.updateTagsFromNotes();
                 
@@ -1712,22 +1760,238 @@ class FlomoWebApp {
             }
         }
     }
+    
+    // 保存编辑历史
+    saveEditHistory(noteId, content, timestamp) {
+        try {
+            const historyKey = `edit_history_${noteId}`;
+            const existingHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
+            
+            // 添加新的历史记录到数组开头，确保最新的记录在前面
+            existingHistory.unshift({
+                content: content,
+                timestamp: timestamp,
+                editedAt: new Date().toISOString()
+            });
+            
+            // 限制历史记录数量，最多保存10条
+            if (existingHistory.length > 10) {
+                existingHistory.pop();
+            }
+            
+            localStorage.setItem(historyKey, JSON.stringify(existingHistory));
+        } catch (error) {
+            console.error('保存编辑历史失败:', error);
+        }
+    }
+    
+    // 获取编辑历史
+    getEditHistory(noteId) {
+        try {
+            const historyKey = `edit_history_${noteId}`;
+            return JSON.parse(localStorage.getItem(historyKey) || '[]');
+        } catch (error) {
+            console.error('获取编辑历史失败:', error);
+            return [];
+        }
+    }
 
     cancelEdit() {
         this.editingNoteId = null;
         this.render();
     }
 
+    expandNote(noteId) {
+        const note = this.notes.find(n => n.id === noteId);
+        if (!note) return;
+
+        // 创建放大查看的模态框
+        const modal = document.createElement('div');
+        modal.className = 'note-expand-modal';
+        modal.innerHTML = `
+            <div class="note-expand-content">
+                <div class="note-expand-header">
+                    <h3><i class="material-icons">fullscreen</i> 笔记详情</h3>
+                    <button class="btn-icon close-expand-btn" title="关闭">
+                        <i class="material-icons">close</i>
+                    </button>
+                </div>
+                <div class="note-expand-body">
+                    <div class="note-expand-text">${note.content}</div>
+                    <div class="note-expand-tags">
+                        ${note.tags.map(tag => `
+                            <span class="tag ${tag.includes('/') ? 'tag-nested' : ''}" data-tag="${tag}">
+                                #${tag}
+                            </span>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="note-expand-footer">
+                    <span class="note-expand-time">
+                        <i class="material-icons">schedule</i>
+                        ${new Date(note.timestamp).toLocaleString()}
+                    </span>
+                    <div class="note-expand-actions">
+                        <button class="btn btn-secondary view-history-btn" data-note-id="${note.id}">
+                            <i class="material-icons">history</i> 编辑历史
+                        </button>
+                        <button class="btn btn-secondary close-expand-btn">
+                            <i class="material-icons">close</i> 关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // 绑定关闭事件
+        modal.querySelectorAll('.close-expand-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.closeExpandModal(modal));
+        });
+
+        // 点击模态框背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeExpandModal(modal);
+            }
+        });
+
+        // 标签点击事件
+        modal.querySelectorAll('.tag').forEach(tag => {
+            tag.addEventListener('click', (e) => {
+                const tagName = e.target.dataset.tag;
+                if (tagName) {
+                    this.closeExpandModal(modal);
+                    this.searchByTag(tagName);
+                }
+            });
+        });
+        
+        // 编辑历史按钮事件
+        modal.querySelector('.view-history-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const noteId = parseInt(e.target.closest('.view-history-btn').dataset.noteId);
+            this.showEditHistory(noteId);
+        });
+
+        // ESC键关闭
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                this.closeExpandModal(modal);
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+
+        // 显示动画
+        requestAnimationFrame(() => {
+            modal.classList.add('active');
+        });
+    }
+
+    closeExpandModal(modal) {
+        modal.classList.remove('active');
+        setTimeout(() => {
+            modal.remove();
+        }, 300);
+    }
+    
+    // 显示编辑历史
+    showEditHistory(noteId) {
+        const history = this.getEditHistory(noteId);
+        
+        // 创建编辑历史模态框
+        const modal = document.createElement('div');
+        modal.className = 'note-expand-modal';
+        modal.innerHTML = `
+            <div class="note-expand-content">
+                <div class="note-expand-header">
+                    <h3><i class="material-icons">history</i> 编辑历史</h3>
+                    <button class="btn-icon close-history-btn" title="关闭">
+                        <i class="material-icons">close</i>
+                    </button>
+                </div>
+                <div class="note-expand-body">
+                    ${history.length > 0 ? `
+                        <div class="history-list">
+                            ${history.map((item, index) => `
+                                <div class="history-item" data-index="${index}">
+                                    <div class="history-header">
+                                        <span class="history-index">版本 ${index + 1}</span>
+                                        <span class="history-time">
+                                            编辑时间: ${new Date(item.editedAt).toLocaleString()}
+                                        </span>
+                                    </div>
+                                    <div class="history-content">${item.content}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : `
+                        <div class="empty-history">
+                            <i class="material-icons">history_off</i>
+                            <p>暂无编辑历史记录</p>
+                        </div>
+                    `}
+                </div>
+                <div class="note-expand-footer">
+                    <div class="note-expand-actions">
+                        <button class="btn btn-secondary close-history-btn">
+                            <i class="material-icons">close</i> 关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // 绑定关闭事件
+        modal.querySelectorAll('.close-history-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.closeExpandModal(modal));
+        });
+        
+        // 点击模态框背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeExpandModal(modal);
+            }
+        });
+        
+        // ESC键关闭
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                this.closeExpandModal(modal);
+                document.removeEventListener('keydown', handleEsc);
+            }
+        };
+        document.addEventListener('keydown', handleEsc);
+        
+        // 显示动画
+        requestAnimationFrame(() => {
+            modal.classList.add('active');
+        });
+    }
+
     exportNotes() {
         try {
+            let notesToExport = this.notes;
+            let exportFileName = 'flomo-lite-backup';
+            
+            if (this.isSearchMode && this.currentSearch) {
+                notesToExport = this.filterNotes();
+                exportFileName = `flomo-lite-search-${this.currentSearch.replace('/', '-')}`;
+            }
+            
             const exportData = {
                 version: '1.0',
                 exportDate: new Date().toISOString(),
-                noteCount: this.notes.length,
+                noteCount: notesToExport.length,
                 tagCount: this.tags.size,
-                notes: this.notes,
+                notes: notesToExport,
                 tags: Array.from(this.tags),
-                source: 'Flomo Lite Web App'
+                source: 'Flomo Lite Web App',
+                ...(this.isSearchMode && this.currentSearch && { searchQuery: this.currentSearch })
             };
             
             const jsonString = JSON.stringify(exportData, null, 2);
@@ -1737,14 +2001,14 @@ class FlomoWebApp {
             a.href = url;
             
             const dateStr = new Date().toISOString().split('T')[0];
-            a.download = `flomo-lite-backup-${dateStr}.json`;
+            a.download = `${exportFileName}-${dateStr}.json`;
             
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             
-            this.showToast(`导出成功！共导出 ${this.notes.length} 条笔记`, 'success');
+            this.showToast(`导出成功！共导出 ${notesToExport.length} 条笔记`, 'success');
             
         } catch (error) {
             console.error('导出失败:', error);
@@ -1865,8 +2129,23 @@ class FlomoWebApp {
         
         const filterIndicator = document.getElementById('filterIndicator');
         if (this.isSearchMode && this.currentSearch) {
-            filterIndicator.textContent = `（筛选: ${this.currentSearch}）`;
+            filterIndicator.innerHTML = `（筛选: ${this.currentSearch}） <span id="exportSearchBtn" style="margin-left: 10px; cursor: pointer; color: var(--primary-color); display: inline-flex; align-items: center; gap: 2px; padding: 2px 6px; border-radius: var(--border-radius-sm); transition: background-color var(--transition-fast);" title="导出搜索结果"><i class="material-icons" style="font-size: 14px;">download</i> 导出</span>`;
             filterIndicator.style.display = 'inline';
+            
+            // 添加导出按钮点击事件
+            document.getElementById('exportSearchBtn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.exportNotes();
+            });
+            
+            // 添加悬停效果
+            document.getElementById('exportSearchBtn').addEventListener('mouseenter', function() {
+                this.style.backgroundColor = 'var(--primary-light)';
+            });
+            
+            document.getElementById('exportSearchBtn').addEventListener('mouseleave', function() {
+                this.style.backgroundColor = 'transparent';
+            });
         } else {
             filterIndicator.style.display = 'none';
         }

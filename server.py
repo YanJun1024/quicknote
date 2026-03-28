@@ -241,7 +241,7 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
             
             content_length = int(self.headers['Content-Length'])
-            if content_length > 10 * 1024 * 1024:  # 限制10MB
+            if content_length > 200 * 1024 * 1024:  # 限制200MB
                 self.send_error(413, 'Payload too large')
                 return
             
@@ -299,7 +299,7 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
             
             content_length = int(self.headers['Content-Length'])
-            if content_length > 10 * 1024 * 1024:  # 限制10MB
+            if content_length > 200 * 1024 * 1024:  # 限制200MB
                 self.send_error(413, 'Payload too large')
                 return
             
